@@ -1,0 +1,19 @@
+---
+
+- name: install common roles
+  hosts: localhost
+
+  tasks:
+    - name: Update APT Cache
+      apt:
+        update_cache: yes
+
+    - name: Install Virtual Box
+      apt:
+        name: virtualbox
+        state: latest
+
+    - name: Install Extension Pack
+      shell: "echo virtualbox-ext-pack virtualbox-ext-pack/license select true | sudo debconf-set-selections"
+
+
