@@ -25,6 +25,8 @@
           - git
           - atool
           - xvfb
+          - nodejs
+          - npm
         state: latest
         update_cache: false
 
@@ -53,6 +55,7 @@
           - python3-tk
           - python3-venv
           - python3-virtualenv
+          - python3-jupyterlab-server
         state: latest
         update_cache: false
 
@@ -61,6 +64,7 @@
       pip: 
         name:
           - seaborn
+          - jupyterlab
 
     - name: add vscode repository
       become: yes
@@ -95,3 +99,29 @@
           - geany
         state: latest
         update_cache: false
+        
+    - name: Jupyter lab service
+      become: yes
+      copy:
+        dest: /etc/systemd/system/jupytherlab.service
+        content: |
+          [Unit]
+          Description=jupytherlab
+          [Service]
+          Type=simple
+          ExecStart=/home/kic/.local/bin/jupyter-lab --ip=0.0.0.0 --port 17256 --LabApp.token=''
+          WorkingDirectory=/home/kic/
+          User=kic
+          Group=kic
+          Restart=on-failure
+          RestartSec=5s
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Jupyter lab service
+      become: yes
+      systemd:
+        name: jupytherlab
+        state: started
+        enabled: yes
+

@@ -24,6 +24,12 @@
         - "deb http://archive.ubuntu.com/ubuntu/ {{ release }} main restricted universe multiverse"
         - "deb http://archive.ubuntu.com/ubuntu/ {{ release }}-updates main restricted universe multiverse"
         - "deb http://security.ubuntu.com/ubuntu/ {{ release }}-security main restricted universe multiverse"
+
+    #- name: add google chrome repository
+    #  become: yes
+    #  ansible.builtin.apt_repository:
+    #    repo: deb http://dl.google.com/linux/chrome/deb/ stable main
+    #    state: present
         
     - name: Install basis software
       become: yes
@@ -51,7 +57,10 @@
           - tor
           - torbrowser-launcher
           - gzip
-          - gparted                    
+          - gparted            
+          - google-chrome-stable
+        state: latest
+                  
     - name: adding existing user to group docker
       become: yes
       user:
@@ -75,5 +84,28 @@
         - name: update grub
           shell: update-grub
 
-
+    - name: Aliases
+      become: no
+      copy:
+        dest: /home/kic/.bash_aliases
+        content: |
+          alias ll='ls -alF'
+          alias la='ls -A'
+          alias l='ls -CF'
+          alias df='df -h'
+          alias md5="md5sum"
+          alias ll="ls -lha"
+          alias nettop="sudo iftop -i wlp0s20f3"
+          alias wifi="nmcli dev wifi"
+          alias ldot='ls -1a | grep "^\."'
+          alias battary='upower -i `upower -e | grep BAT`'
+          alias uncolor='sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g"'
+          alias ppython='python -m ptpython --vi'
+          alias netscan="nmap -sn `hostname -I | grep -Eo '^[0-9]+\.[0-9]+\.[0-9]+\.'`0/24"
+          alias apt-selected='apt-mark showmanual'
+          alias bob-start='openvpn3 session-start --config $HOME/sources/work/valdon/bob/bob.ovpn'          
+          alias open='xdg-open'
+          alias scan-pdf='hp-scan -d hpaio:/net/HP_ColorLaserJet_MFP_M278-M281?ip=192.168.1.254 -r 150 -s pdf -m color --adf -o'
+          alias ib_paper_gateway='docker run -it --rm --name ibgateway -e TRADING_MODE="p" -e ARGS="username=ckin1977p password=fussballFrosch112" -p 5900:5900 -p 4002:4002 -v `pwd`/Jts:/home/ibg/Jts/ ibgateway'
+          alias my-os="lsb_release -a"
 
