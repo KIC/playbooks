@@ -30,6 +30,7 @@
       apt:
         pkg:
           - build-essential 
+          - btrfs-progs
           - linux-headers-generic
           - ecryptfs-utils
           - docker.io
