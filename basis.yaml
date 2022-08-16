@@ -29,11 +29,28 @@
       become: yes
       apt:
         pkg:
+          - build-essential 
+          - linux-headers-generic
           - ecryptfs-utils
           - docker.io
           - vlc
+          - zip
+          - lrzip
+          - iftop
+          - htop
+          - nmap
+          - unar
+          - unison
+          - usb-creator-gtk
+          - imagemagick
           - ubuntu-restricted-extras
-
+          - wget
+          - xvfb
+          - usb-creator-gtk
+          - tor
+          - torbrowser-launcher
+          - gzip
+          - gparted                    
     - name: adding existing user to group docker
       become: yes
       user:
