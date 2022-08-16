@@ -1,0 +1,61 @@
+---
+
+- name: install common roles
+  hosts:  "{{ _host_ | default('localhost') }}"
+
+  tasks:
+    - name: disable 32 bit support
+      shell: sudo dpkg --remove-architecture i386
+      become: yes
+      
+    - name: get current release
+      shell: lsb_release -sc
+      register: release
+
+    - set_fact: 
+        release={{ release.stdout }}
+
+    - name: add universe repository
+      become: yes
+      ansible.builtin.apt_repository:
+        repo: "{{ item }}"
+        state: present
+      loop:
+        - "deb http://archive.ubuntu.com/ubuntu/ {{ release }} main restricted universe multiverse"
+        - "deb http://archive.ubuntu.com/ubuntu/ {{ release }}-updates main restricted universe multiverse"
+        - "deb http://security.ubuntu.com/ubuntu/ {{ release }}-security main restricted universe multiverse"
+        
+    - name: Install basis software
+      become: yes
+      apt:
+        pkg:
+          - ecryptfs-utils
+          - docker.io
+          - vlc
+          - ubuntu-restricted-extras
+
+    - name: adding existing user to group docker
+      become: yes
+      user:
+        name: "{{ lookup('env', 'USER') }}"
+        groups: docker
+        append: yes
+        
+    - name: disable spectre and co
+      become: yes
+      block:
+        
+        - name: fix_etc_default_grub
+          lineinfile:
+            path: /etc/default/grub
+            line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet nopti nospectre_v2 spectre_v2_user=off spec_store_bypass_disable=off l1tf=off ipv6.disable=1"'
+            regexp: '^GRUB_CMDLINE_LINUX_DEFAULT=.*'
+            state: present
+            insertafter: EOF
+            create: no
+        
+        - name: update grub
+          shell: update-grub
+
+
+

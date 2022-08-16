@@ -1,6 +1,6 @@
 ---
 
-- name: install common roles
+- name: install development roles
   hosts:  "{{ _host_ | default('localhost') }}"
 
   tasks:
@@ -22,6 +22,8 @@
           - wget
           - curl
           - code
+          - git
+          - atool
         state: latest
         update_cache: false
 
