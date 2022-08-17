@@ -63,6 +63,7 @@
       become: no
       pip: 
         name:
+          - ptpython
           - seaborn
           - jupyterlab
 

@@ -57,7 +57,8 @@
           - tor
           - torbrowser-launcher
           - gzip
-          - gparted            
+          - gparted 
+          - tlp           
           - google-chrome-stable
         state: latest
                   
