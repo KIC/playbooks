@@ -72,6 +72,13 @@
         repo: ppa:deadsnakes/ppa
         state: present
 
+    - name: Install python 3.8
+      become: yes
+      apt:
+        pkg:
+          - python3.8
+          - python3.8-venv
+          - python3.8-distutils
 
     - name: add vscode repository
       become: yes
