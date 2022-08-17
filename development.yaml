@@ -66,10 +66,23 @@
           - seaborn
           - jupyterlab
 
+    - name: add deadsnakes repository
+      become: yes
+      ansible.builtin.apt_repository:
+        repo: ppa:deadsnakes/ppa
+        state: present
+
+
     - name: add vscode repository
       become: yes
       ansible.builtin.apt_repository:
         repo: deb https://packages.microsoft.com/repos/vscode stable main
+        state: present
+
+    - name: add dbeaver repository
+      become: yes
+      ansible.builtin.apt_repository:           
+        repo: "deb https://dbeaver.io/debs/dbeaver-ce /"
         state: present
 
     - name: add jetbrains repository
@@ -97,6 +110,7 @@
           - datagrip
           - rider
           - geany
+          - dbeaver-ce
         state: latest
         update_cache: false
         
