@@ -131,7 +131,7 @@
           Description=jupytherlab
           [Service]
           Type=simple
-          ExecStart=/home/kic/.local/bin/jupyter-lab --ip=0.0.0.0 --port 17256 --LabApp.token=''
+          ExecStart=/home/kic/.local/bin/jupyter-lab --ip=0.0.0.0 --port 17256 --LabApp.token='{{ _token _ }}'
           WorkingDirectory=/home/kic/
           User=kic
           Group=kic
