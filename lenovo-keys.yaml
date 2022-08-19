@@ -11,9 +11,9 @@
         regexp: "{{ item.reg }}"
         line: "{{ item.line }}"
       loop:
-        - { reg: "^key <HOME>", line: "key <HOME> {	[  Prior		]	};" }
-        - { reg: "^key <PGUP>", line: "key <PGUP> {	[  Home 		]	};" }
-        - { reg: "^key  <END>", line: "key  <END> {	[  Next			]	};" }
-        - { reg: "^key <PGDN>", line: "key <PGDN> {	[  End			]	};" }
+        - { reg: "^    key <HOME>", line: "    key <HOME> {	[  Prior		]	};" }
+        - { reg: "^    key <PGUP>", line: "    key <PGUP> {	[  Home 		]	};" }
+        - { reg: "^    key  <END>", line: "    key  <END> {	[  Next			]	};" }
+        - { reg: "^    key <PGDN>", line: "    key <PGDN> {	[  End			]	};" }
 
 
