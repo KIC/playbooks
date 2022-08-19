@@ -1,0 +1,19 @@
+---
+
+- name: install lenovo roles
+  hosts:  "{{ _host_ | default('localhost') }}"
+
+  tasks:        
+    - name: change keybindigs
+      become: yes
+      lineinfile:
+        dest: /usr/share/X11/xkb/symbols/pc
+        regexp: "{{ item.reg }}"
+        line: "{{ item.line }}"
+      loop:
+        - { reg: "^key <HOME>", line: "key <HOME> {	[  Prior		]	};" }
+        - { reg: "^key <PGUP>", line: "key <PGUP> {	[  Home 		]	};" }
+        - { reg: "^key  <END>", line: "key  <END> {	[  Next			]	};" }
+        - { reg: "^key <PGDN>", line: "key <PGDN> {	[  End			]	};" }
+
+
