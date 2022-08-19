@@ -90,6 +90,7 @@
       copy:
         dest: /home/kic/.bash_aliases
         content: |
+          alias apt-installed='apt-mark showmanual'
           alias ll='ls -alF'
           alias la='ls -A'
           alias l='ls -CF'
