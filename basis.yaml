@@ -41,6 +41,7 @@
           - btrfs-progs
           - linux-headers-generic
           - ecryptfs-utils
+          - vim
           - docker.io
           - vlc
           - zip

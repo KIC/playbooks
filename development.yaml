@@ -4,7 +4,6 @@
   hosts:  "{{ _host_ | default('localhost') }}"
 
   tasks:
-
     - name: Update APT Cache
       become: yes
       apt:
@@ -86,12 +85,14 @@
       ansible.builtin.apt_repository:
         repo: deb https://packages.microsoft.com/repos/vscode stable main
         state: present
+        update_cache: no
 
     - name: add dbeaver repository
       become: yes
       ansible.builtin.apt_repository:           
-        repo: "deb https://dbeaver.io/debs/dbeaver-ce /"
+        repo: ppa:serge-rider/dbeaver-ce
         state: present
+        update_cache: no
 
     - name: add jetbrains repository
       become: yes
@@ -105,6 +106,12 @@
           ansible.builtin.apt_repository:
             repo: "deb [signed-by=/etc/apt/trusted.gpg.d/jetbrains-unofficial.asc] http://jetbrains-ppa.s3-website.eu-central-1.amazonaws.com any main"
             state: present
+            update_cache: no
+
+    - name: add repo
+      become: yes
+      apt:
+        update_cache: yes
 
     - name: Install IDEs
       become: yes
@@ -120,7 +127,7 @@
           - geany
           - dbeaver-ce
         state: latest
-        update_cache: false
+        update_cache: no
         
     - name: Jupyter lab service
       become: yes
@@ -131,7 +138,7 @@
           Description=jupytherlab
           [Service]
           Type=simple
-          ExecStart=/home/kic/.local/bin/jupyter-lab --ip=0.0.0.0 --port 17256 --LabApp.token='{{ _token _ }}'
+          ExecStart=/home/kic/.local/bin/jupyter-lab --ip=0.0.0.0 --port 17256 --LabApp.token='{{ _token_ }}'
           WorkingDirectory=/home/kic/
           User=kic
           Group=kic
