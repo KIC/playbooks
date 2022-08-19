@@ -109,4 +109,10 @@
           alias scan-pdf='hp-scan -d hpaio:/net/HP_ColorLaserJet_MFP_M278-M281?ip=192.168.1.254 -r 150 -s pdf -m color --adf -o'
           alias ib_paper_gateway='docker run -it --rm --name ibgateway -e TRADING_MODE="p" -e ARGS="username=ckin1977p password=fussballFrosch112" -p 5900:5900 -p 4002:4002 -v `pwd`/Jts:/home/ibg/Jts/ ibgateway'
           alias my-os="lsb_release -a"
+          systemctl() {
+            if [[ "${1-}" == "log" ]]; then
+              /usr/bin/journalctl -u "${@:2}";
+            else /usr/bin/systemctl "$@";
+            fi
+          }
 
