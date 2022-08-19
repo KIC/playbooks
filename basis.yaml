@@ -7,6 +7,7 @@
     - name: disable 32 bit support
       shell: sudo dpkg --remove-architecture i386
       become: yes
+      ignore_errors: yes
       
     - name: get current release
       shell: lsb_release -sc
@@ -35,6 +36,7 @@
       become: yes
       apt:
         pkg:
+          - grub-pc
           - build-essential 
           - btrfs-progs
           - linux-headers-generic
@@ -104,8 +106,7 @@
           alias uncolor='sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g"'
           alias ppython='python -m ptpython --vi'
           alias netscan="nmap -sn `hostname -I | grep -Eo '^[0-9]+\.[0-9]+\.[0-9]+\.'`0/24"
-          alias apt-selected='apt-mark showmanual'
-          alias bob-start='openvpn3 session-start --config $HOME/sources/work/valdon/bob/bob.ovpn'          
+          alias apt-selected='apt-mark showmanual'          
           alias open='xdg-open'
           alias scan-pdf='hp-scan -d hpaio:/net/HP_ColorLaserJet_MFP_M278-M281?ip=192.168.1.254 -r 150 -s pdf -m color --adf -o'
           alias ib_paper_gateway='docker run -it --rm --name ibgateway -e TRADING_MODE="p" -e ARGS="username=ckin1977p password=fussballFrosch112" -p 5900:5900 -p 4002:4002 -v `pwd`/Jts:/home/ibg/Jts/ ibgateway'
