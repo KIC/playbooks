@@ -88,6 +88,21 @@
         - name: update grub
           shell: update-grub
 
+        - name: check if systemd_boot
+          stat:
+             path: /boot/efi/loader/entries/Pop_OS-current.conf
+          register: systemd_boot
+
+        - name: in case of systemd-boot
+          lineinfile:
+            path: /boot/efi/loader/entries/Pop_OS-current.conf
+            backrefs: yes
+            line: 'options \1 nopti nospectre_v2 spectre_v2_user=off spec_store_bypass_disable=off l1tf=off ipv6.disable=1'
+            regexp: '^options (.*)$'
+            state: present
+            create: no
+          when: systemd_boot.stat.exists
+
     - name: Aliases
       become: no
       copy:
