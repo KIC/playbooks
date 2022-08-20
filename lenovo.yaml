@@ -4,6 +4,16 @@
   hosts:  "{{ _host_ | default('localhost') }}"
 
   tasks:        
+    - name: disable touchscreen
+      become: yes
+      copy:
+        dest: /usr/share/X11/xorg.conf.d/99-disabletouch.conf
+        content: |
+          Section "InputClass"
+              Identifier "Touchscreen catchall"
+              MatchIsTouchscreen "off"
+          EndSection
+
     - name: change keybindigs
       become: yes
       lineinfile:
