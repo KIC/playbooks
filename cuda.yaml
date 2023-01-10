@@ -1,0 +1,19 @@
+---
+
+- name: install common roles
+  hosts: localhost
+
+  tasks:
+    - name: Update APT Cache
+      apt:
+        update_cache: yes
+
+    - name: Install Virtual Box
+      apt:
+        pkg: 
+          - system76-cuda-latest
+          - system76-cudnn-11.2
+        state: latest
+
+
+

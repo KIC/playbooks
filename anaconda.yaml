@@ -1,0 +1,33 @@
+---
+
+- name: install anaconda 
+  hosts:  "{{ _host_ | default('localhost') }}"
+
+  tasks:
+    - name: downloand and install anaconda binary
+      become: yes
+      shell: |
+        echo download newes version of anaconda
+        python -c '#!/bin/python
+        import os
+        import pandas as pd
+        df = pd.read_html("https://repo.anaconda.com/archive/")[0].set_index("Last Modified").sort_index()
+        url = "https://repo.anaconda.com/archive/" + df[df["Filename"].str.contains("inux") & df["Filename"].str.contains("x86") & df["Filename"].str.contains("64")].iloc[-1, 0]
+        os.system(f"""wget -c --read-timeout=5 --tries=0 "{url}" -O /tmp/Anaconda3-Linux-x86_64.sh """)'
+        echo install anaconda
+        mkdir /opt/anaconda 
+        chown kic:kic /opt/anaconda/
+        bash /tmp/Anaconda3-Linux-x86_64.sh -u -b -p /opt/anaconda/
+
+
+  #- name:
+     # todo create anaconda script
+     # #!/bin/bash
+     # if [ "$1" == "-r" ]; then
+     #   PATH=$(echo "$PATH" | sed -e 's/:\/opt\/anaconda\/bin\///g')
+     # else
+     #   PATH=$PATH:/opt/anaconda/bin/
+     # fi
+     #
+     # echo "$PATH"
+     # export PATH

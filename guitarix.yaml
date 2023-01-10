@@ -1,0 +1,27 @@
+---
+
+- name: install guitarix roles
+  hosts:  "{{ _host_ | default('localhost') }}"
+
+  tasks:
+    - name: Install basis software
+      become: yes
+      apt:
+        pkg:
+          - ardour
+          - hydrogen
+          - carla
+          - guitarix
+          - guitarix-common
+          - guitarix-ladspa
+          - guitarix-lv2
+          
+        state: latest
+
+    - name: adding existing user to group audio
+      become: yes
+      user:
+        name: "{{ lookup('env', 'USER') }}"
+        groups: audio
+        append: yes
+ 

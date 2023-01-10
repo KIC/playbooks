@@ -36,6 +36,7 @@
       become: yes
       apt:
         pkg:
+          - python3
           - grub-pc
           - build-essential 
           - btrfs-progs
@@ -63,7 +64,15 @@
           - gparted 
           - tlp           
           - google-chrome-stable
+          - wmctrl
+          - msttcorefonts
         state: latest
+
+    - name: Install some pip pacakges
+      become: no
+      pip:
+        name:
+          - requests
                   
     - name: adding existing user to group docker
       become: yes
@@ -108,6 +117,7 @@
       copy:
         dest: /home/kic/.bash_aliases
         content: |
+          alias http-server='python3 -m http.server'
           alias apt-installed='apt-mark showmanual'
           alias ll='ls -alF'
           alias la='ls -A'
@@ -124,6 +134,7 @@
           alias netscan="nmap -sn `hostname -I | grep -Eo '^[0-9]+\.[0-9]+\.[0-9]+\.'`0/24"
           alias apt-selected='apt-mark showmanual'          
           alias open='xdg-open'
+          alias venv='python -m venv'
           alias scan-pdf='hp-scan -d hpaio:/net/HP_ColorLaserJet_MFP_M278-M281?ip=192.168.1.254 -r 150 -s pdf -m color --adf -o'
           alias ib_paper_gateway='docker run -it --rm --name ibgateway -e TRADING_MODE="p" -e ARGS="username=ckin1977p password=fussballFrosch112" -p 5900:5900 -p 4002:4002 -v `pwd`/Jts:/home/ibg/Jts/ ibgateway'
           alias my-os="lsb_release -a"

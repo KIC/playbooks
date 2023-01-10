@@ -29,6 +29,9 @@
         state: latest
         update_cache: false
 
+    - name: configure git
+      shell: git config --global credential.helper store
+
     - name: Install python
       become: yes
       apt:
@@ -65,6 +68,11 @@
           - ptpython
           - seaborn
           - jupyterlab
+          - sqlalchemy
+          - pyarrow
+          - scikit-learn
+          - h5py
+          - click
 
     - name: add deadsnakes repository
       become: yes
@@ -138,7 +146,7 @@
           Description=jupytherlab
           [Service]
           Type=simple
-          ExecStart=/home/kic/.local/bin/jupyter-lab --ip=0.0.0.0 --port 17256 --LabApp.token='{{ _token_ }}'
+          ExecStart=/home/kic/.local/bin/jupyter-lab --ip=0.0.0.0 --port 17256 --NotebookApp.max_buffer_size=12000000000 --LabApp.token='{{ _token_ }}'
           WorkingDirectory=/home/kic/
           User=kic
           Group=kic

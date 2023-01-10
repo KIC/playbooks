@@ -1,0 +1,17 @@
+---
+
+- name: install gnome roles
+  hosts:  "{{ _host_ | default('localhost') }}"
+
+  tasks:        
+    - name: Install gnome software
+      become: yes
+      apt:
+        pkg:
+          - shutter
+          - dconf-editor
+          - gnome-tweaks
+          - gedit-plugin-multi-edit
+        state: latest
+                  
+
