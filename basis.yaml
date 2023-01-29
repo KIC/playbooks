@@ -26,6 +26,10 @@
         - "deb http://archive.ubuntu.com/ubuntu/ {{ release }}-updates main restricted universe multiverse"
         - "deb http://security.ubuntu.com/ubuntu/ {{ release }}-security main restricted universe multiverse"
 
+    - name: add nvim repository
+      ansible.builtin.apt_repository:
+        repo: ppa:neovim-ppa/stable
+
     #- name: add google chrome repository
     #  become: yes
     #  ansible.builtin.apt_repository:
@@ -65,8 +69,18 @@
           - tlp           
           - google-chrome-stable
           - wmctrl
+          - ttf-mscorefonts-installer
           - msttcorefonts
+          - transmission
+          - sshfs
+          - neovim
         state: latest
+
+    - name: install lazy nvim config
+      # git clone https://github.com/LazyVim/starter ~/.config/nvim
+      ansible.builtin.git:
+        repo: https://github.com/LazyVim/starter
+        dest: "{{ lookup('env', 'USER') }}/.config/nvim"
 
     - name: Install some pip pacakges
       become: no
