@@ -58,6 +58,8 @@
           - python3-venv
           - python3-virtualenv
           - python3-jupyterlab-server
+          - python3-lxml
+          - python3-pyquery
         state: latest
         update_cache: false
 
@@ -69,10 +71,12 @@
           - seaborn
           - jupyterlab
           - sqlalchemy
+          - tables
           - pyarrow
           - scikit-learn
           - h5py
           - click
+          - pygwalker
 
     - name: add deadsnakes repository
       become: yes
