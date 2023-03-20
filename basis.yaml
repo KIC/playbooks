@@ -43,6 +43,7 @@
           - python3
           - grub-pc
           - build-essential 
+          - cmake
           - btrfs-progs
           - linux-headers-generic
           - ecryptfs-utils

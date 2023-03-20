@@ -1,0 +1,37 @@
+---
+
+- name: install andriod anbox roles
+  hosts:  "{{ _host_ | default('localhost') }}"
+ 
+    - name: Install software
+      become: yes
+      apt:
+        pkg:
+          - anbox
+          - android-tools-adb
+          - wget
+          - curl
+          - lzip
+          - tar
+          - unzip
+          - squashfs-tools  
+        state: latest
+
+    # wget https://raw.githubusercontent.com/geeks-r-us/anbox-playstore-installer/master/install-playstore.sh
+    # chmod +x install-playstore.sh
+    # ./install-playstore.sh
+    # anbox.appmgr
+ 
+
+    # In case after installing the Play Store on Anbox you won’t be able to connect internet for setting up Google account to install various Android apps use the command:
+
+    # sudo /snap/anbox/current/bin/anbox-bridge.sh start
+    # Install Android Apps on Anbox
+    # Once you are done with all this, open the Anbox and the command terminal as well. If you want to install APK manually using the Terminal type the following commands:
+
+    # To find the attached emulator devices run the below command, this recognizes the running Anbox.
+
+    # adb devices
+    # Download the APK file of the app you want to install from various online websites such as APK mirror and all. After that use that APK with the ADB installs command syntax:
+
+    # adb install apk-file-name
