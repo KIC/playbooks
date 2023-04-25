@@ -13,6 +13,7 @@
         pkg: 
           - system76-cuda-latest
           - system76-cudnn-11.2
+          - nvidia-cuda-toolkit
         state: latest
 
 
