@@ -26,6 +26,8 @@
           - xvfb
           - nodejs
           - npm
+          - libsnappy-dev
+          - nvidia-cuda-toolkit
         state: latest
         update_cache: false
 
@@ -60,6 +62,7 @@
           - python3-jupyterlab-server
           - python3-lxml
           - python3-pyquery
+          - python3-snappy
         state: latest
         update_cache: false
 
@@ -77,7 +80,8 @@
           - h5py
           - click
           - pygwalker
-
+          - python-sql
+          - dill
     - name: add deadsnakes repository
       become: yes
       ansible.builtin.apt_repository:
@@ -138,9 +142,14 @@
           - rider
           - geany
           - dbeaver-ce
+          - libsnappy-jni
         state: latest
         update_cache: no
-        
+       
+    # TODO
+    # pycharm compile cpython extensions: sudo /usr/bin/python3 /opt/pycharm-professional/plugins/python/helpers/pydev/setup_cython.py build_ext --inplace 
+    #
+
     - name: Jupyter lab service
       become: yes
       copy:
