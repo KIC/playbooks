@@ -87,13 +87,16 @@
         repo: ppa:deadsnakes/ppa
         state: present
 
-    - name: Install python 3.8
+    - name: Install python 3.8, 3.9
       become: yes
       apt:
         pkg:
           - python3.8
           - python3.8-venv
           - python3.8-distutils
+          - python3.9
+          - python3.9-venv
+          - python3.9-distutils
 
     - name: add vscode repository
       become: yes
@@ -145,10 +148,14 @@
         state: latest
         update_cache: no
        
-    # TODO
-    # pycharm compile cpython extensions: sudo /usr/bin/python3 /opt/pycharm-professional/plugins/python/helpers/pydev/setup_cython.py build_ext --inplace 
-    #
-
+    - name: install Cpython extensions for pycharm professional
+      shell: /usr/bin/python3 /opt/pycharm-professional/plugins/python/helpers/pydev/setup_cython.py build_ext --inplace
+      become: yes
+          
+    - name: install Cpython extensions for pycharm community
+      shell: /usr/bin/python3 /opt/pycharm-community/plugins/python-ce/helpers/pydev/setup_cython.py build_ext --inplace
+      become: yes
+        
     - name: Jupyter lab service
       become: yes
       copy:

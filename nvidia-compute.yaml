@@ -1,0 +1,9 @@
+---
+
+- name: set popos nvidia to compute
+  hosts:  "{{ _host_ | default('localhost') }}"
+
+  tasks:        
+    - name: use nvidia for compute only
+      shell: system76-power graphics compute
+      become: yes
