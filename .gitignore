@@ -1,3 +1,5 @@
 install-ansible.sh
 scratch.yaml
 kic.yaml
+kic/.config/nvim/.git*
+*.swp

@@ -2,11 +2,17 @@
 run playbooks locally with arguments 
 
 ```bash
-ansibple-playbook basis.yaml -K --extra-vars "_token_=geheim"
+# install ansible
+sudo apt install ansible
+
+# install general purpose basis software, disable ipv6, disable spectre, etc
+ansible-playbook basis.yaml -K
+
+
 ```
 
 if not running on localhost:
 ```bash
-ansibple-playbook basis.yaml -kK --extra-vars "_host_=loalhost _token_=geheim"
+ansible-playbook basis.yaml -kK --extra-vars "_host_=loalhost _token_=geheim"
 ```
 

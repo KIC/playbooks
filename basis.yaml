@@ -5,7 +5,9 @@
 
   tasks:
     - name: disable 32 bit support
-      shell: sudo dpkg --remove-architecture i386
+      shell: |
+        apt-get remove --allow-remove-essential --purge `dpkg --get-selections | awk '/i386/{print $1}'`
+        sudo dpkg --remove-architecture i386
       become: yes
       ignore_errors: yes
       
@@ -26,10 +28,6 @@
         - "deb http://archive.ubuntu.com/ubuntu/ {{ release }}-updates main restricted universe multiverse"
         - "deb http://security.ubuntu.com/ubuntu/ {{ release }}-security main restricted universe multiverse"
 
-    - name: add nvim repository
-      ansible.builtin.apt_repository:
-        repo: ppa:neovim-ppa/stable
-
     #- name: add google chrome repository
     #  become: yes
     #  ansible.builtin.apt_repository:
@@ -40,7 +38,10 @@
       become: yes
       apt:
         pkg:
+          - hardinfo
+          - neovim
           - python3
+          - python3-pip
           - grub-pc
           - build-essential 
           - cmake
