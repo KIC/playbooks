@@ -1,14 +1,17 @@
 ---
 
-- name: install common roles
-  hosts: localhost
+- name: install cuda computing roles
+  hosts:  "{{ _host_ | default('localhost') }}"
+
 
   tasks:
     - name: Update APT Cache
+      become: yes
       apt:
         update_cache: yes
 
-    - name: Install Virtual Box
+    - name: Install CUDA libraries and tools
+      become: yes
       apt:
         pkg: 
           - system76-cuda-latest

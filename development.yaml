@@ -30,6 +30,14 @@
         state: latest
         update_cache: false
 
+    - name: configure vscode
+      shell: |
+        code --install-extension rdnlsmith.linux-themes
+        sed -i -e 's/"workbench.colorTheme": ".*"/"workbench.colorTheme": "Yaru"/g' "$HOME/.config/Code/User/settings.json"
+        code --install-extension lisoveliy.starcoderex
+        code --install-extension ms-vscode-remote.remote-containers
+        code --install-extension ms-azuretools.vscode-docker
+
     - name: configure git
       shell: git config --global credential.helper store
 
