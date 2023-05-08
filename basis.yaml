@@ -91,7 +91,11 @@
       become: no
       pip:
         name:
+          - sqlalchemy
+          - pandas
           - requests
+          - click
+          - tqdm
                   
     - name: adding existing user to group docker
       become: yes
@@ -165,4 +169,11 @@
             else /usr/bin/systemctl "$@";
             fi
           }
+
+    - name: LocalBin
+      become: yes
+      copy:
+        dest: /etc/profile.d/local_bin.sh
+        content: |
+          export PATH="$PATH:$HOME/bin"
 
