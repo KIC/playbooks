@@ -130,9 +130,13 @@
             path: /boot/efi/loader/entries/Pop_OS-current.conf
             backrefs: yes
             line: 'options \1 nopti nospectre_v2 spectre_v2_user=off spec_store_bypass_disable=off l1tf=off ipv6.disable=1'
-            regexp: '^options (.*)$'
+            regexp: '^options (.*) nopti nospectre_v2 spectre_v2_user=off spec_store_bypass_disable=off l1tf=off ipv6.disable=1$'
             state: present
             create: no
+          when: systemd_boot.stat.exists
+
+        - name: update boot
+          shell: sudo bootctl update
           when: systemd_boot.stat.exists
 
     - name: Aliases
@@ -140,6 +144,7 @@
       copy:
         dest: /home/kic/.bash_aliases
         content: |
+          alias standby='systemctl suspend'
           alias vim='nvim'
           alias http-server='python3 -m http.server'
           alias apt-installed='apt-mark showmanual'
@@ -177,3 +182,7 @@
         content: |
           export PATH="$PATH:$HOME/bin"
 
+    - name: copying binary files
+      copy:
+        src: ~/playbooks/bin
+        dest: ~/bin
