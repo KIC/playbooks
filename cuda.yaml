@@ -17,7 +17,32 @@
           - system76-cuda-latest
           - system76-cudnn-11.2
           - nvidia-cuda-toolkit
+          - python3-numba
         state: latest
 
 
+    - name: Python pacakges
+      pip:
+        name:
+          - nvidia-cudnn-cu11
+
+    - name: add envornoment variables
+      block:
+        - name: CUDNN path
+          lineinfile:
+            path: ~/.bashrc
+            line: 'export CUDNN_PATH=$(dirname $(python -c "import nvidia.cudnn;print(nvidia.cudnn.__file__)"))'
+            regexp: '^export CUDNN_PATH=.*'
+            state: present
+            insertafter: EOF
+            create: no
+        - name: LD_LIBRARY_PATH #export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/:$CUDNN_PATH/lib
+          lineinfile:
+            path: ~/.bashrc
+            line: 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/:$CUDNN_PATH/lib'                                   
+            regexp: '^export LD_LIBRARY_PATH=.*'         
+            state: present
+            insertafter: EOF
+            create: no
+        
 

@@ -186,3 +186,8 @@
       copy:
         src: ~/playbooks/bin
         dest: ~/bin
+
+    - name: DdefaultFolders
+      shell: |
+        rm -rf Templates Public
+        
