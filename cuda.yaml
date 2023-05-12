@@ -45,4 +45,16 @@
             insertafter: EOF
             create: no
         
+        - name: make gobal
+          become: no
+          shell: |
+            echo "#!/bin/bash" > /tmp/cuda.sh
+            echo 'CUDNN_PATH=$(dirname $(python -c "import nvidia.cudnn;print(nvidia.cudnn.__file__)"))' >> /tmp/cuda.sh
+            echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/:$CUDNN_PATH/lib' >> /tmp/cuda.sh
+
+        - name: make global
+          become: yes
+          copy:
+            src: /tmp/cuda.sh
+            dest: /etc/profile.d/
 
