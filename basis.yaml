@@ -79,6 +79,7 @@
           - bonnie++
           - gcp
           - fuse-zip
+          - doublecmd-common
         state: latest
 
     - name: install lazy nvim config
