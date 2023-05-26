@@ -80,6 +80,9 @@
           - gcp
           - fuse-zip
           - doublecmd-common
+          - fzf
+          - printer-driver-cups-pdf
+          - duplicity
         state: latest
 
     - name: install lazy nvim config
@@ -140,6 +143,15 @@
           shell: sudo bootctl update
           when: systemd_boot.stat.exists
 
+    - name: increase filesystem watcher
+      become: yes
+      lineinfile:
+        path: /etc/sysctl.conf
+        backrefs: yes
+        line: 'fs.inotify.max_user_watches=524288'
+        regexp: '^fs.inotify.max_user_watches=.*$'
+        state: present
+        
     - name: Aliases
       become: no
       copy:

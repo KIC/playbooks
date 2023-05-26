@@ -1,0 +1,5 @@
+add pat install cargo to develompent and 
+rustup target add wasm32-unknown-unknown
+rustup: command not found
+18:19:20 kic@Z:~$ cargo install trunk
+

@@ -18,6 +18,7 @@
           - system76-cudnn-11.2
           - nvidia-cuda-toolkit
           - python3-numba
+          - nvtop
         state: latest
 
 
