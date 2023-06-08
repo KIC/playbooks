@@ -12,6 +12,7 @@
           - dconf-editor
           - gnome-tweaks
           - gedit-plugin-multi-edit
+          - gnome-shell-extension-gsconnect
         state: latest
                   
 

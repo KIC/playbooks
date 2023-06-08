@@ -83,7 +83,14 @@
           - fzf
           - printer-driver-cups-pdf
           - duplicity
+          - snapd
+          - meld
         state: latest
+
+    - name: install some snaps
+      community.general.snap:
+        name:
+          - 4ktube
 
     - name: install lazy nvim config
       # git clone https://github.com/LazyVim/starter ~/.config/nvim
@@ -187,6 +194,9 @@
             else /usr/bin/systemctl "$@";
             fi
           }
+          gen-token() {
+            echo "$1" | sha256sum | base64
+          }
 
     - name: LocalBin
       become: yes
@@ -200,7 +210,15 @@
         src: ~/playbooks/bin
         dest: ~/bin
 
-    - name: DdefaultFolders
+    - name: DefaultFolders
       shell: |
         rm -rf Templates Public
-        
+
+    - name: increase file limits
+      become: yes
+      lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^fs\.inotify\.max_user_watches='
+        line: fs.inotify.max_user_watches=524288
+
+
