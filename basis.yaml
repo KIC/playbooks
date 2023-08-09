@@ -85,6 +85,7 @@
           - duplicity
           - snapd
           - meld
+          - btop
         state: latest
 
     - name: install some snaps
