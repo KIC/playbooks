@@ -1,0 +1,22 @@
+---
+
+- name: install docker roles
+  hosts:  "{{ _host_ | default('localhost') }}"
+
+
+  tasks:
+    - name: Install docker role 
+      community.general.ansible_galaxy_install:
+        type: role
+        name: geerlingguy.docker
+
+    - name: Install docker add ons
+      become: yes
+      apt:
+        pkg:
+          - docker-compose
+
+    - name: Change the working directory to somedir/ before executing the command
+      ansible.builtin.shell: lazydocker.sh
+      #args:
+        #chdir: somedir/
