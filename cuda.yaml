@@ -26,6 +26,9 @@
       pip:
         name:
           - nvidia-cudnn-cu11
+          - tensorflow[and-cuda]
+          - torch
+          - pyro-ppl
 
     - name: add envornoment variables
       block:

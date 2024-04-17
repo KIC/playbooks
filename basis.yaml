@@ -88,6 +88,7 @@
           - btop
           - unixodbc
           - unixodbc-dev
+          - progress
         state: latest
 
     - name: install some snaps
@@ -125,7 +126,7 @@
         - name: fix_etc_default_grub
           lineinfile:
             path: /etc/default/grub
-            line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet nopti nospectre_v2 spectre_v2_user=off spec_store_bypass_disable=off l1tf=off ipv6.disable=1"'
+            line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet nopti nospectre_v2 spectre_v2_user=off spec_store_bypass_disable=off l1tf=off ipv6.disable=1 rcutree.rcu_idle_gp_delay=1 mem_sleep_default=deep"'
             regexp: '^GRUB_CMDLINE_LINUX_DEFAULT=.*'
             state: present
             insertafter: EOF
@@ -224,4 +225,18 @@
         regexp: '^fs\.inotify\.max_user_watches='
         line: fs.inotify.max_user_watches=524288
 
+    - name: disable splash and enable system status
+      shell: |
+        kernelstub --delete-options "quiet systemd.show_status=false splash"
+        kernelstub --add-options "systemd.show_status=true"
+      become: yes
+      ignore_errors: yes
+
+    - name: Fix Blackscreen after sleep
+      become: yes
+      ansible.builtin.shell:
+        cmd: |
+          command -v kernelstubs && kernelstub -a mem_sleep_default=deep
+          command -v kernelstubs && kernelstub -a rcutree.rcu_idle_gp_delay=1
+          command -v kernelstubs && mitigations=off
 

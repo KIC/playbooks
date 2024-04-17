@@ -55,16 +55,16 @@
           - python3-gi
           - python3-jupyter-console
           - python3-jupyter-core
-          - python3-matplotlib
+            #- python3-matplotlib
           - python3-nacl
-          - python3-numpy
-          - python3-pandas
+            #- python3-numpy
+            #- python3-pandas
           - python3-psycopg2
           - python3-pymacaroons
           - python3-pymysql
           - python3-pytest
-          - python3-requests
-          - python3-sklearn
+            #- python3-requests
+            #- python3-sklearn
           - python3-tk
           - python3-venv
           - python3-virtualenv
@@ -72,6 +72,7 @@
           - python3-lxml
           - python3-pyquery
           - python3-snappy
+          - python3-graphviz
         state: latest
         update_cache: false
 
@@ -79,6 +80,10 @@
       become: no
       pip: 
         name:
+          - include-pycharm-modules
+          - pandas
+          - numpy
+          - requests
           - ptpython
           - seaborn
           - jupyterlab
@@ -86,11 +91,16 @@
           - tables
           - pyarrow
           - scikit-learn
+          - scikit-optimize
           - h5py
           - click
           - pygwalker
           - python-sql
           - dill
+          - tensorflow
+          - tensorflow-probability
+          - torch 
+          - lets-plot
     - name: add deadsnakes repository
       become: yes
       ansible.builtin.apt_repository:
