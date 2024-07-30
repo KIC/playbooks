@@ -236,7 +236,13 @@
       become: yes
       ansible.builtin.shell:
         cmd: |
-          command -v kernelstubs && kernelstub -a mem_sleep_default=deep
+          command -v kernelstubs && kernelstub -a mem_sleep_default=s2idle
           command -v kernelstubs && kernelstub -a rcutree.rcu_idle_gp_delay=1
           command -v kernelstubs && mitigations=off
 
+    - name: Change the widget font to "Serif 12"
+      community.general.gconftool2:
+        # org.gnome.nautilus.icon-view default-zoom-level large
+        key: "/org/gnome/nautilus/icon-view/default-zoom-level"
+        value_type: "string"
+        value: "large"
