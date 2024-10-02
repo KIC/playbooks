@@ -89,6 +89,7 @@
           - unixodbc
           - unixodbc-dev
           - progress
+          - powertop
         state: latest
 
     - name: install some snaps
@@ -190,6 +191,7 @@
           alias venv='python -m venv'
           alias dockerpurge='docker container prune -f && docker image prune -a && docker builder prune --all'
           alias scan-pdf='hp-scan -d hpaio:/net/HP_ColorLaserJet_MFP_M278-M281?ip=192.168.1.254 -r 150 -s pdf -m color --adf -o'
+          alias window-system="loginctl show-session $(awk '/tty/ {print $1}' <(loginctl)) -p Type | awk -F= '{print $2}'"
           alias ib_paper_gateway='docker run -it --rm --name ibgateway -e TRADING_MODE="p" -e ARGS="username=ckin1977p password=fussballFrosch112" -p 5900:5900 -p 4002:4002 -v `pwd`/Jts:/home/ibg/Jts/ ibgateway'
           alias my-os="lsb_release -a"
           systemctl() {
