@@ -32,3 +32,13 @@ ansible-playbook basis.yaml -kK --extra-vars "_host_=localhost"
 
 # Optimizations
  * firefox: make use less cpu: https://www.makeuseof.com/how-to-reduce-firefox-cpu-usage/
+
+# Notes on Installed software
+## pipx
+if we install jupyter-lab with pipx we get isolated servers where we can have different version of pandas and co.
+If an application installed by pipx requires additional packages, you can add them with pipx inject. For example, 
+if you have ipython installed and want to add the matplotlib package to it, you would use:
+
+`pipx inject ipython matplotlib`
+
+

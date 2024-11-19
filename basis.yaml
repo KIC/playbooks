@@ -90,6 +90,7 @@
           - unixodbc-dev
           - progress
           - powertop
+          - neofetch
         state: latest
 
     - name: install some snaps
@@ -127,7 +128,7 @@
         - name: fix_etc_default_grub
           lineinfile:
             path: /etc/default/grub
-            line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet nopti nospectre_v2 spectre_v2_user=off spec_store_bypass_disable=off l1tf=off ipv6.disable=1 rcutree.rcu_idle_gp_delay=1 mem_sleep_default=deep"'
+            line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet nopti nospectre_v2 spectre_v2_user=off spec_store_bypass_disable=off l1tf=off ipv6.disable=1 rcutree.rcu_idle_gp_delay=1 mem_sleep_default=deep intel_iommu=on iommu=pt"'
             regexp: '^GRUB_CMDLINE_LINUX_DEFAULT=.*'
             state: present
             insertafter: EOF

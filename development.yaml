@@ -22,6 +22,8 @@
           - curl
           - code
           - git
+          - git-lfs
+          - gh
           - atool
           - xvfb
           - nodejs
@@ -30,6 +32,10 @@
         state: latest
         update_cache: false
 
+    - name: install gitgib cli extensions
+      shell: |
+        gh extension install actions/gh-actions-cache
+        
     - name: configure vscode
       shell: |
         code --install-extension rdnlsmith.linux-themes
@@ -73,6 +79,7 @@
           - python3-pyquery
           - python3-snappy
           - python3-graphviz
+          - pipx
         state: latest
         update_cache: false
 

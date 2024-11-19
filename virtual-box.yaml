@@ -7,10 +7,30 @@
     - name: Update APT Cache
       apt:
         update_cache: yes
+    - name: Install KVM / Quemy
+      apt:
+        pkg:
+          - qemu 
+          - virt-manager 
+          - virt-viewer 
+          - dnsmasq 
+          - vde2 
+          - bridge-utils 
+          - libguestfs-tools 
+
+    - name: Add the user to group libvirt
+      ansible.builtin.user:
+        name: kic
+        group: libvirt
 
     - name: Install Virtual Box
       apt:
-        name: virtualbox
+        pkg: 
+          - bridge-utils 
+          - virt-manager 
+          - qemu-kvm 
+          - ovmf
+          - virtualbox
         state: latest
 
     - name: Install Extension Pack
