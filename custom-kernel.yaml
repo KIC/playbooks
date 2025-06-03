@@ -3,7 +3,7 @@
   hosts:  "{{ _host_ | default('localhost') }}"
   become: yes
   vars:
-    work_dir: "/tmp/kernel-build"
+    work_dir: "{{ ansible_env.HOME }}/kernel-build"
     kernel_source_dir: "{{ work_dir }}/linux/kernel"
     pop_os_kernel_repo: "https://github.com/pop-os/linux.git"
     pop_os_kernel_branch: "master_jammy"
@@ -174,7 +174,7 @@
         ls -l /lib/modules/
         
         # Get our custom kernel version
-        version="$(make -C /tmp/kernel-build/linux/kernel kernelversion | grep -o '^[0-9].*')+"
+        version="$(make -C {{ kernel_source_dir }} kernelversion | grep -o '^[0-9].*')+"
         echo -e "\n=== Modules for our custom kernel ${version} ==="
         find "/lib/modules/${version}" -type f -name "*.ko*" | head -n 5
         echo "... (showing first 5 modules only)"
@@ -182,6 +182,9 @@
         # Check DKMS status for our version
         echo -e "\n=== DKMS Status for ${version} ==="
         dkms status | grep "${version}"
+
+        # Save kernel version 
+        echo "${version}" > /var/custom_kernel_version.txt
       register: module_check
       changed_when: false
       tags: ["install", "verify"]
@@ -204,8 +207,8 @@
 
     - name: Create boot entry for custom kernel
       shell: |
-        # Get our custom kernel version
-        kernel_version="$(make -C /tmp/kernel-build/linux/kernel kernelversion | grep -o '^[0-9].*')+"
+        # Get our custom kernel version from saved file
+        kernel_version="$(cat /var/custom_kernel_version.txt | trim)"
         
         # Get current kernel cmdline options
         current_options=$(cat /proc/cmdline | sed 's/BOOT_IMAGE=[^ ]* //g')
@@ -242,7 +245,7 @@
     - name: Update kernelstub configuration
       shell: |
         # Configure kernelstub to use our custom kernel
-        kernel_version="$(make -C /tmp/kernel-build/linux/kernel kernelversion | grep -o '^[0-9].*')+"
+        kernel_version="$(cat /var/custom_kernel_version.txt | trim)"
         
         kernelstub --verbose --manage-only \
           --esp-path /boot/efi \
