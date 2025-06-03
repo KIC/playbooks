@@ -118,6 +118,25 @@
           CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y
           CONFIG_PM_WAKELOCKS=y
           CONFIG_ENERGY_MODEL=y
+          
+          #
+          # FANCY STUFF
+          #
+          
+          # Zswap configuration with LZ4
+          CONFIG_ZSWAP=y
+          CONFIG_ZSWAP_COMPRESSOR_DEFAULT_LZ4=y
+          CONFIG_ZSWAP_ZPOOL_DEFAULT_ZBUD=y
+          CONFIG_ZSWAP_DEFAULT_ON=y
+          CONFIG_CRYPTO_LZ4=y
+          CONFIG_CRYPTO_LZ4HC=y
+          CONFIG_Z3FOLD=y
+          CONFIG_ZBUD=y
+          
+          # Multigenerational LRU
+          CONFIG_LRU_GEN=y
+          CONFIG_LRU_GEN_ENABLED=y
+          CONFIG_LRU_GEN_STATS=y
 
     - name: Copy current kernel config as base
       shell: |
