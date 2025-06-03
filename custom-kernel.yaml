@@ -1,0 +1,219 @@
+---
+- name: Build and Install Custom Pop!_OS Kernel
+  hosts:  "{{ _host_ | default('localhost') }}"
+  become: yes
+  vars:
+    work_dir: "/tmp/kernel-build"
+    kernel_source_dir: "{{ work_dir }}/linux/kernel"
+    pop_os_kernel_repo: "https://github.com/pop-os/linux.git"
+    pop_os_kernel_branch: "master_jammy"
+    # We'll determine these dynamically during playbook execution
+    debug_mode: true
+
+  tasks:
+    - name: Install required build dependencies
+      apt:
+        name:
+          - git
+          - build-essential
+          - libncurses-dev
+          - bison
+          - flex
+          - libssl-dev
+          - libelf-dev
+          - gcc
+          - make
+          - dwarves
+          - zstd
+          - bc
+          - rsync
+          - dkms
+          - debhelper
+          - debhelper-compat
+          - fakeroot
+          - kernel-wedge
+          - devscripts
+        state: present
+        update_cache: yes
+
+    - name: Clean and recreate work directory
+      file:
+        path: "{{ work_dir }}"
+        state: absent
+
+    - name: Create work directory
+      file:
+        path: "{{ work_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Clone Pop!_OS kernel source
+      git:
+        repo: "{{ pop_os_kernel_repo }}"
+        dest: "{{ kernel_source_dir }}"
+        version: "{{ pop_os_kernel_branch }}"
+        depth: 1
+
+    - name: Get CPU information
+      command: cat /proc/cpuinfo
+      register: cpu_info
+      changed_when: false
+
+    - name: Create custom kernel config
+      blockinfile:
+        path: "{{ kernel_source_dir }}/.config"
+        create: yes
+        block: |
+          # General setup
+          CONFIG_64BIT=y
+          CONFIG_SMP=y
+          # Disable 32-bit support
+          CONFIG_COMPAT=n
+          CONFIG_X86_32=n
+          
+          # CPU-specific optimizations (will be detected during build)
+          CONFIG_GENERIC_CPU=n
+          CONFIG_MNATIVE=y
+          
+          # Power management
+          CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE=y
+          CONFIG_CPU_FREQ_GOV_ONDEMAND=y
+          CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
+          CONFIG_INTEL_IDLE=y
+          CONFIG_CPU_IDLE=y
+          CONFIG_INTEL_PSTATE=y
+          CONFIG_ACPI_CPPC_CPUFREQ=y
+          
+          # Disable unnecessary features
+          CONFIG_FB_BOOT_VESA_SUPPORT=n
+          CONFIG_FRAMEBUFFER_CONSOLE=n
+          CONFIG_LOGO=n
+          CONFIG_CHROME_PLATFORMS=n
+          
+          # Disable security mitigations for performance
+          CONFIG_RETPOLINE=n
+          CONFIG_SPECULATION_BARRIER=n
+          CONFIG_PAGE_TABLE_ISOLATION=n
+          CONFIG_KAISER=n
+          CONFIG_RANDOMIZE_BASE=n
+          CONFIG_RANDOMIZE_MEMORY=n
+          CONFIG_STACKPROTECTOR=n
+          CONFIG_STACKPROTECTOR_STRONG=n
+          CONFIG_VMAP_STACK=n
+          CONFIG_STRICT_KERNEL_RWX=n
+          CONFIG_STRICT_MODULE_RWX=n
+          CONFIG_SECURITY_DMESG_RESTRICT=n
+          CONFIG_STATIC_USERMODEHELPER=n
+          
+          # Enable modern features
+          CONFIG_PREEMPT=y
+          CONFIG_HIGH_RES_TIMERS=y
+          CONFIG_NO_HZ_FULL=y
+          CONFIG_RCU_NOCB_CPU=y
+          CONFIG_NUMA=y
+          CONFIG_TRANSPARENT_HUGEPAGE=y
+          
+          # Power saving features
+          CONFIG_PM_AUTOSLEEP=y
+          CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y
+          CONFIG_PM_WAKELOCKS=y
+          CONFIG_ENERGY_MODEL=y
+
+    - name: Copy current kernel config as base
+      shell: |
+        if [ -f /boot/config-$(uname -r) ]; then
+          cp /boot/config-$(uname -r) {{ kernel_source_dir }}/.config
+        else
+          make defconfig
+        fi
+      args:
+        chdir: "{{ kernel_source_dir }}"
+
+    - name: Configure kernel
+      shell: |
+        make olddefconfig
+        if [ "{{ debug_mode }}" = "true" ]; then
+          echo "Running make menuconfig for manual verification"
+          make menuconfig
+        fi
+      args:
+        chdir: "{{ kernel_source_dir }}"
+
+    - name: Build kernel
+      shell: |
+        export DEB_BUILD_OPTIONS='nocheck parallel=$(nproc)'
+        export DPKG_FLAGS='-d'
+        make -j$(nproc) clean
+        make -j$(nproc) bindeb-pkg KDEB_PKGVERSION=$(make kernelversion)-1
+      args:
+        chdir: "{{ kernel_source_dir }}"
+      register: build_result
+
+    - name: Debug - Show build result
+      debug:
+        var: build_result
+      when: debug_mode | bool
+
+    - name: Install custom kernel and headers
+      apt:
+        deb: "{{ item }}"
+        state: present
+      with_fileglob:
+        - "{{ work_dir }}/linux-image-*.deb"
+        - "{{ work_dir }}/linux-headers-*.deb"
+      tags: ["install"]
+
+    - name: Verify kernel modules installation
+      shell: |
+        # Show available kernels
+        echo "=== Available Kernels ==="
+        ls -l /boot/vmlinuz*
+        
+        # Show kernel modules directories
+        echo -e "\n=== Kernel Module Directories ==="
+        ls -l /lib/modules/
+        
+        # Get our custom kernel version
+        version="$(make -C /tmp/kernel-build/linux/kernel kernelversion | grep -o '^[0-9].*')+"
+        echo -e "\n=== Modules for our custom kernel ${version} ==="
+        find "/lib/modules/${version}" -type f -name "*.ko*" | head -n 5
+        echo "... (showing first 5 modules only)"
+        
+        # Check DKMS status for our version
+        echo -e "\n=== DKMS Status for ${version} ==="
+        dkms status | grep "${version}"
+      register: module_check
+      changed_when: false
+      tags: ["install", "verify"]
+
+    - name: Show modules verification result
+      debug:
+        var: module_check
+      when: debug_mode | bool
+      tags: ["install", "verify"]
+
+#    - name: Create boot entry for custom kernel
+#      shell: |
+#        kernel_version=$(ls -1 /boot/vmlinuz-* | grep -v "$(uname -r)" | sort -V | tail -n1 | sed 's/\/boot\/vmlinuz-//')
+#        cat > /boot/loader/entries/pop-os-custom.conf << EOF
+#        title Pop!_OS Custom Kernel (${kernel_version})
+#        linux /vmlinuz-${kernel_version}
+#        initrd /initrd.img-${kernel_version}
+#        options root=UUID=$(findmnt -n -o UUID /) ro quiet splash
+#        EOF
+#
+#    - name: Set custom kernel as default boot entry
+#      lineinfile:
+#        path: /boot/loader/loader.conf
+#        regexp: '^default'
+#        line: 'default pop-os-custom.conf'
+#        create: yes
+#
+#    - name: Clean up build directory
+#      file:
+#        path: "{{ work_dir }}"
+#        state: absent
+#      when: clean_build_dir | default(true)
+#
+# Compressed Swap: Swap storage is compressed with LZ4 using zswap
+# Multigenerational LRU

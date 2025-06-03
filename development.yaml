@@ -108,6 +108,14 @@
           - tensorflow-probability
           - torch 
           - lets-plot
+
+
+    - name: pyenv and poetry
+      become: no
+      shell: |
+        curl -fsSL https://pyenv.run | bash
+        curl -sSL https://install.python-poetry.org | python3 -
+      
     - name: add deadsnakes repository
       become: yes
       ansible.builtin.apt_repository:

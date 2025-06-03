@@ -91,6 +91,9 @@
           - progress
           - powertop
           - neofetch
+          - hexchat
+          - privoxy
+          - adb
         state: latest
 
     - name: install some snaps
@@ -110,9 +113,11 @@
         name:
           - sqlalchemy
           - pandas
+          - tables
           - requests
           - click
           - tqdm
+          - BetterADBSync
                   
     - name: adding existing user to group docker
       become: yes
@@ -164,12 +169,13 @@
         line: 'fs.inotify.max_user_watches=524288'
         regexp: '^fs.inotify.max_user_watches=.*$'
         state: present
-        
-    - name: Aliases
-      become: no
-      copy:
-        dest: /home/kic/.bash_aliases
-        content: |
+
+    - name: Create global aliases
+      become: yes
+      blockinfile:
+        path: /etc/bash.bashrc
+        block: |
+          # Global aliases
           alias standby='systemctl suspend'
           alias vim='nvim'
           alias http-server='python3 -m http.server'
@@ -191,6 +197,13 @@
           alias open='xdg-open'
           alias venv='python -m venv'
           alias dockerpurge='docker container prune -f && docker image prune -a && docker builder prune --all'
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - GLOBAL ALIASES"
+          
+    - name: Personal Aliases
+      become: no
+      copy:
+        dest: /home/kic/.bash_aliases
+        content: |
           alias scan-pdf='hp-scan -d hpaio:/net/HP_ColorLaserJet_MFP_M278-M281?ip=192.168.1.254 -r 150 -s pdf -m color --adf -o'
           alias window-system="loginctl show-session $(awk '/tty/ {print $1}' <(loginctl)) -p Type | awk -F= '{print $2}'"
           alias ib_paper_gateway='docker run -it --rm --name ibgateway -e TRADING_MODE="p" -e ARGS="username=ckin1977p password=fussballFrosch112" -p 5900:5900 -p 4002:4002 -v `pwd`/Jts:/home/ibg/Jts/ ibgateway'
@@ -249,3 +262,15 @@
         key: "/org/gnome/nautilus/icon-view/default-zoom-level"
         value_type: "string"
         value: "large"
+
+    - name: Modify HISTSIZE and HISTFILESIZE in .bashrc
+      ansible.builtin.lineinfile:
+        path: ~/.bashrc
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        create: true
+      loop:
+        - { regexp: '^HISTSIZE=', line: 'HISTSIZE=-1' }
+        - { regexp: '^HISTFILESIZE=', line: 'HISTFILESIZE=-1' }
+

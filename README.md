@@ -22,11 +22,17 @@ if not running on localhost:
 ansible-playbook basis.yaml -kK --extra-vars "_host_=localhost"
 ```
 
+## Ather config
+ * privoxy add mail.google.com under the {fragile} tag in /etc/privoxy/user.action
+   then add privoxy as http and https proxy to system network settings on port 8118
+   test if everything works by browsing to http:/p.p/
+
 
 ## Other software
  * Obsidian Notes: https://obsidian.md/download
  * Huawai Tehming Studio: https://developer.huawei.com/consumer/en/doc/Tools-Library/theme_download-0000001050424897
- * 13ft ladder: https://github.com/wasi-master/13ft
+ * --13ft ladder: https://github.com/wasi-master/13ft--
+   * https://gitlab.com/adamkb263/bypass-paywalls-chrome-clean
  * Realtime Speech to Text: https://github.com/KoljaB/RealtimeSTT
 
 
