@@ -192,28 +192,38 @@
       when: debug_mode | bool
       tags: ["install", "verify"]
 
-#    - name: Create boot entry for custom kernel
-#      shell: |
-#        kernel_version=$(ls -1 /boot/vmlinuz-* | grep -v "$(uname -r)" | sort -V | tail -n1 | sed 's/\/boot\/vmlinuz-//')
-#        cat > /boot/loader/entries/pop-os-custom.conf << EOF
-#        title Pop!_OS Custom Kernel (${kernel_version})
-#        linux /vmlinuz-${kernel_version}
-#        initrd /initrd.img-${kernel_version}
-#        options root=UUID=$(findmnt -n -o UUID /) ro quiet splash
-#        EOF
-#
-#    - name: Set custom kernel as default boot entry
-#      lineinfile:
-#        path: /boot/loader/loader.conf
-#        regexp: '^default'
-#        line: 'default pop-os-custom.conf'
-#        create: yes
-#
-#    - name: Clean up build directory
-#      file:
-#        path: "{{ work_dir }}"
-#        state: absent
-#      when: clean_build_dir | default(true)
-#
-# Compressed Swap: Swap storage is compressed with LZ4 using zswap
-# Multigenerational LRU
+    - name: Ensure systemd-boot loader directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      with_items:
+        - /boot/efi/loader
+        - /boot/efi/loader/entries
+      tags: ["install", "bootloader"]
+
+    - name: Create boot entry for custom kernel
+      shell: |
+        # Get our custom kernel version
+        kernel_version="$(make -C /tmp/kernel-build/linux/kernel kernelversion | grep -o '^[0-9].*')+"
+        
+        # Get current kernel cmdline options
+        current_options=$(cat /proc/cmdline | sed 's/BOOT_IMAGE=[^ ]* //g')
+                
+        # Create loader entry
+        cat > /boot/efi/loader/entries/pop-os-custom.conf << EOF
+        title Pop!_OS (Custom ${kernel_version})
+        linux /EFI/Pop_OS-${kernel_version}/vmlinuz.efi
+        initrd /EFI/Pop_OS-${kernel_version}/initrd.img
+        options ${current_options}
+        EOF
+        
+        # Copy kernel and initrd to EFI partition
+        mkdir -p /boot/efi/EFI/Pop_OS-${kernel_version}
+        cp /boot/vmlinuz-${kernel_version} /boot/efi/EFI/Pop_OS-${kernel_version}/vmlinuz.efi
+        cp /boot/initrd.img-${kernel_version} /boot/efi/EFI/Pop_OS-${kernel_version}/initrd.img
+        
+        echo "Created boot entry for kernel ${kernel_version}"
+      args:
+        chdir: "{{ kernel_source_dir }}"
+      tags: ["install", "bootloader"]
