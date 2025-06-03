@@ -227,3 +227,38 @@
       args:
         chdir: "{{ kernel_source_dir }}"
       tags: ["install", "bootloader"]
+
+    - name: Configure loader timeout
+      blockinfile:
+        path: /boot/efi/loader/loader.conf
+        create: yes
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - CUSTOM KERNEL SETTINGS"
+        block: |
+          timeout 3
+          console-mode max
+          editor no
+      tags: ["install", "bootloader"]
+
+    - name: Update kernelstub configuration
+      shell: |
+        # Configure kernelstub to use our custom kernel
+        kernel_version="$(make -C /tmp/kernel-build/linux/kernel kernelversion | grep -o '^[0-9].*')+"
+        
+        kernelstub --verbose --manage-only \
+          --esp-path /boot/efi \
+          --kernel-path /boot/vmlinuz-${kernel_version}] \
+          --initrd-path /boot/initrd.img-${kernel_version} \
+          --loader-path /EFI/Pop_OS-${kernel_version}/vmlinuz.efi
+      args:
+        chdir: "{{ kernel_source_dir }}"
+      when: false
+      tags: ["make-default"]
+
+    - name: Set custom kernel as default boot entry
+      blockinfile:
+        path: /boot/efi/loader/loader.conf
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - DEFAULT KERNEL SETTING"
+        block: |
+          default pop-os-custom.conf
+      when: false
+      tags: ["make-default"]
