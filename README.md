@@ -14,8 +14,15 @@ shutdown -r now
 ## install development tools
 ansible-playbook development.yaml -K --extra-vars "_token_=geheim"
 
-
 ```
+
+## install custom kernel
+Note that the playbook installs the custom kernel as an optional boot entry and
+you have 3 seconds to select it manually on boot. If the kernel works as expected
+you can make it the default and kernelstub managed by executing the tags
+
+`sudo ansible-playbook custom-kernel.yaml --tags "make-default" --extra-vars "when=true"`
+
 
 if not running on localhost:
 ```bash
