@@ -215,39 +215,27 @@
         deb: "{{ item }}"
         state: present
       with_fileglob:
-        - "{{ work_dir }}/linux/linux-image-[0-9]*.deb"
-        - "{{ work_dir }}/linux/linux-headers-[0-9]*.deb"
+        - "{{ work_dir }}/linux/linux-*-{{ kernelversion_cmd.stdout }}+_{{ kernelversion_cmd.stdout }}-1_amd64.deb"
       tags: ["install"]
 
-    - name: Verify kernel modules installation
-      shell: |
-        # Show available kernels
-        echo "=== Available Kernels ==="
-        ls -l /boot/vmlinuz*
-        
-        # Show kernel modules directories
-        echo -e "\n=== Kernel Module Directories ==="
-        ls -l /lib/modules/
-        
-        # Get our custom kernel version
-        version="{{ kernelversion_cmd.stdout | trim }}"
-        echo -e "\n=== Modules for our custom kernel ${version} ==="
-        find "/lib/modules/${version}" -type f -name "*.ko*" | head -n 5
-        echo "... (showing first 5 modules only)"
-        # Check DKMS status for our version
-        echo -e "\n=== DKMS Status for ${version} ==="
-        dkms status | grep "${version}"
-
-        # Save kernel version 
-        echo "${version}" > /var/custom_kernel_version.txt
-      register: module_check
-      changed_when: false
+    - name: Verify installed kernel image exists
+      stat:
+        path: "/boot/vmlinuz-{{ kernelversion_cmd.stdout }}+"
+      register: kernel_image_stat
       tags: ["install", "verify"]
 
-    - name: Show modules verification result
-      debug:
-        var: module_check
-      when: debug_mode | bool
+    - name: Fail if kernel image is missing
+      fail:
+        msg: "Kernel image /boot/vmlinuz-{{ kernelversion_cmd.stdout }}+ is missing!"
+      when: not kernel_image_stat.stat.exists
+      tags: ["install", "verify"]
+
+    - name: Verify kernel modules directory exists and is not empty
+      shell: |
+        test -d /lib/modules/{{ kernelversion_cmd.stdout }}+ && [ "$(find /lib/modules/{{ kernelversion_cmd.stdout }}+ -type f -name '*.ko*' | wc -l)" -gt 0 ]
+      register: modules_dir_check
+      changed_when: false
+      failed_when: modules_dir_check.rc != 0
       tags: ["install", "verify"]
 
     - name: Ensure systemd-boot loader directories exist
@@ -260,10 +248,26 @@
         - /boot/efi/loader/entries
       tags: ["install", "bootloader"]
 
+    - name: copy custom kernel to EFI
+      shell: |
+        # Get our custom kernel version from saved file
+        kernel_version="{{ kernelversion_cmd.stdout }}" 
+
+        # Copy kernel and initrd to EFI partition
+        mkdir -p /boot/efi/EFI/Pop_OS-${kernel_version}
+        cp /boot/vmlinuz-${kernel_version}+ /boot/efi/EFI/Pop_OS-${kernel_version}/vmlinuz.efi
+        cp /boot/initrd.img-${kernel_version}+ /boot/efi/EFI/Pop_OS-${kernel_version}/initrd.img
+        
+        test -s /boot/efi/EFI/Pop_OS-${kernel_version}/vmlinuz.efi
+        test -s /boot/efi/EFI/Pop_OS-${kernel_version}/initrd.img
+      register: efi_copy_result
+      changed_when: true
+      failed_when: efi_copy_result.rc != 0
+
     - name: Create boot entry for custom kernel
       shell: |
         # Get our custom kernel version from saved file
-        kernel_version="$(cat /var/custom_kernel_version.txt | trim)"
+        kernel_version="{{ kernelversion_cmd.stdout }}"
         
         # Get current kernel cmdline options
         current_options=$(cat /proc/cmdline | sed 's/BOOT_IMAGE=[^ ]* //g')
@@ -275,12 +279,7 @@
         initrd /EFI/Pop_OS-${kernel_version}/initrd.img
         options ${current_options} nvidia-drm.modeset=1 i915.enable_psr=1 pcie_aspm.policy=powersupersave
         EOF
-        
-        # Copy kernel and initrd to EFI partition
-        mkdir -p /boot/efi/EFI/Pop_OS-${kernel_version}
-        cp /boot/vmlinuz-${kernel_version} /boot/efi/EFI/Pop_OS-${kernel_version}/vmlinuz.efi
-        cp /boot/initrd.img-${kernel_version} /boot/efi/EFI/Pop_OS-${kernel_version}/initrd.img
-        
+                
         echo "Created boot entry for kernel ${kernel_version}"
       args:
         chdir: "{{ kernel_source_dir }}"
@@ -300,12 +299,12 @@
     - name: Update kernelstub configuration
       shell: |
         # Configure kernelstub to use our custom kernel
-        kernel_version="$(cat /var/custom_kernel_version.txt | trim)"
+        kernel_version="{{ kernelversion_cmd.stdout }}"
         
         kernelstub --verbose --manage-only \
           --esp-path /boot/efi \
-          --kernel-path /boot/vmlinuz-${kernel_version}] \
-          --initrd-path /boot/initrd.img-${kernel_version} \
+          --kernel-path /boot/vmlinuz-${kernel_version}+ \
+          --initrd-path /boot/initrd.img-${kernel_version}+ \
           --loader-path /EFI/Pop_OS-${kernel_version}/vmlinuz.efi
       args:
         chdir: "{{ kernel_source_dir }}"
