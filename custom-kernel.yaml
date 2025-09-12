@@ -218,6 +218,21 @@
         - "{{ work_dir }}/linux/linux-*-{{ kernelversion_cmd.stdout }}+_{{ kernelversion_cmd.stdout }}-1_amd64.deb"
       tags: ["install"]
 
+    - name: Run dkms autoinstall for new kernel modules
+      shell: |
+        dkms autoinstall --kernel-version {{ kernelversion_cmd.stdout }}+
+      args:
+        chdir: "/"
+      tags: ["install", "dkms"]
+
+    - name: Check that nvidia kernel module is installed for new kernel
+      shell: |
+        modinfo -k {{ kernelversion_cmd.stdout }}+ nvidia
+      register: nvidia_modinfo
+      failed_when: nvidia_modinfo.rc != 0
+      changed_when: false
+      tags: ["install", "verify", "nvidia"]
+
     - name: Verify installed kernel image exists
       stat:
         path: "/boot/vmlinuz-{{ kernelversion_cmd.stdout }}+"
