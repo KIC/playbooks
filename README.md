@@ -32,7 +32,8 @@ ansible-playbook basis.yaml -kK --extra-vars "_host_=localhost"
 ## Ather config
  * privoxy add mail.google.com under the {fragile} tag in /etc/privoxy/user.action
    then add privoxy as http and https proxy to system network settings on port 8118
-   test if everything works by browsing to http:/p.p/
+   test if everything works by browsing to http://p.p/
+   follow the ad blocking list: https://github.com/Andrwe/privoxy-blocklist
 
 
 ## Other software
@@ -41,7 +42,7 @@ ansible-playbook basis.yaml -kK --extra-vars "_host_=localhost"
  * --13ft ladder: https://github.com/wasi-master/13ft--
    * https://gitlab.com/adamkb263/bypass-paywalls-chrome-clean
  * Realtime Speech to Text: https://github.com/KoljaB/RealtimeSTT
-
+ * popsicle to make bootable USB drives
 
 # Optimizations
  * firefox: make use less cpu: https://www.makeuseof.com/how-to-reduce-firefox-cpu-usage/
@@ -54,4 +55,18 @@ if you have ipython installed and want to add the matplotlib package to it, you 
 
 `pipx inject ipython matplotlib`
 
+# Add to playbook later
+* battop https://github.com/svartalf/rust-battop/releases
+* onlyoffice from flathub https://flathub.org/apps/org.onlyoffice.desktopeditors
 
+
+# Wayland
+* enable wayland in gdm conf: `sudo nano /etc/gdm3/custom.conf`
+  - `WaylandEnable=true`
+* then disable gdm rules for auto disabling nvidia `sudo ln -s /dev/null /etc/udev/rules.d/61-gdm.rules`
+* add kernel boot parameter `nvidia-drm.modeset=1`
+
+Like create a seperate boot entry:
+* Copy the existing loader entry from `/boot/efi/loader/entries/Pop_OS-current.conf` to a new file, e.g. `/boot/efi/loader/entries/Pop_OS-nvidia-modeset.conf`
+* Edit the new .conf file to add or modify the kernel command line to include nvidia-drm.modeset=1 in the options line.
+* On boot, systemd-boot will show both entries. You can select the new one to boot with the NVIDIA modeset option enabled.

@@ -1,0 +1,50 @@
+---
+- name: Installiere ClamAV, RKHunter und LMD auf Ubuntu
+  hosts:  "{{ _host_ | default('localhost') }}"
+  become: true
+
+  tasks:
+    - name: Paketliste aktualisieren
+      apt:
+        update_cache: yes
+
+    - name: Installiere ClamAV
+      apt:
+        name: clamav
+        state: present
+
+    - name: Installiere RKHunter
+      apt:
+        name: rkhunter
+        state: present
+
+    - name: Installiere benötigte Pakete für LMD
+      apt:
+        name:
+          - wget
+          - tar
+        state: present
+
+    - name: Lade LMD herunter
+      get_url:
+        url: https://www.rfxn.com/downloads/maldetect-current.tar.gz
+        dest: /tmp/maldetect-current.tar.gz
+        mode: '0644'
+
+    - name: Entpacke LMD
+      unarchive:
+        src: /tmp/maldetect-current.tar.gz
+        dest: /tmp/
+        remote_src: yes
+
+    - name: Installiere LMD
+      shell: |
+        cd /tmp/maldetect-* && ./install.sh
+      args:
+        creates: /usr/local/maldetect/maldet
+
+    - name: Entferne temporäre Dateien
+      file:
+        path: /tmp/maldetect-current.tar.gz
+        state: absent
+

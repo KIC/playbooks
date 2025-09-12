@@ -83,6 +83,7 @@
           - fzf
           - printer-driver-cups-pdf
           - duplicity
+          - deja-dup
           - snapd
           - meld
           - btop
@@ -94,7 +95,21 @@
           - hexchat
           - privoxy
           - adb
+          - powertop
+          - rdfind
         state: latest
+
+    - name: Post privoxy - Ensure no_proxy includes localhost is set permanently system-wide
+      become: yes
+      copy:
+        dest: /etc/profile.d/no_proxy.sh
+        content: |
+          # Set no_proxy environment variable to bypass proxy for localhost
+          export no_proxy=localhost,127.0.0.1
+          export NO_PROXY=localhost,127.0.0.1
+        owner: root
+        group: root
+        mode: '0644'
 
     - name: install some snaps
       community.general.snap:
@@ -197,6 +212,16 @@
           alias open='xdg-open'
           alias venv='python -m venv'
           alias dockerpurge='docker container prune -f && docker image prune -a && docker builder prune --all'
+          alias ansible-playbook="ansible-playbook -K"
+          alias seed='python -c '\''from mnemonic import Mnemonic; print(Mnemonic("english").generate(strength=128))'\'''
+          alias scan-pdf='hp-scan -d hpaio:/net/HP_ColorLaserJet_MFP_M278-M281?ip=192.168.1.254 -r 150 -s pdf -m color --adf -o'
+          alias my-os="lsb_release -a"
+          alias yt-dlp-audio='yt-dlp_linux -f bestaudio --extract-audio --audio-format mp3 --audio-quality 0'
+          alias git-force-pull-master='git fetch --all && git reset --hard origin/master'
+          systemctl() { [[ "${1-}" == "log" ]] && /usr/bin/journalctl -u "${@:2}" || /usr/bin/systemctl "$@"; }
+          gen-token() { echo "$1" | sha256sum | base64; }
+          dockersh() { docker exec -it "$1" sh; }
+          killbyname() { ps aux | grep "$1" | grep -v grep | grep -v "$0" | awk '{print $2}' | xargs -r kill -9; }
         marker: "# {mark} ANSIBLE MANAGED BLOCK - GLOBAL ALIASES"
           
     - name: Personal Aliases
@@ -273,4 +298,3 @@
       loop:
         - { regexp: '^HISTSIZE=', line: 'HISTSIZE=-1' }
         - { regexp: '^HISTFILESIZE=', line: 'HISTFILESIZE=-1' }
-
