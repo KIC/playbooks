@@ -29,6 +29,11 @@ if not running on localhost:
 ansible-playbook basis.yaml -kK --extra-vars "_host_=localhost"
 ```
 
+
+## Multiple Screen with different/fractional scaling
+currently only possible with wayland and breezy desktop
+
+
 ## Ather config
  * privoxy add mail.google.com under the {fragile} tag in /etc/privoxy/user.action
    then add privoxy as http and https proxy to system network settings on port 8118

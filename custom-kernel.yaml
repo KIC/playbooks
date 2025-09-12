@@ -3,7 +3,7 @@
   hosts:  "{{ _host_ | default('localhost') }}"
   become: yes
   vars:
-    work_dir: "{{ ansible_env.HOME }}/kernel-build"
+    work_dir: "/tmp/kernel-build"
     kernel_source_dir: "{{ work_dir }}/linux/kernel"
     pop_os_kernel_repo: "https://github.com/pop-os/linux.git"
     pop_os_kernel_branch: "master_jammy"
@@ -33,26 +33,17 @@
           - fakeroot
           - kernel-wedge
           - devscripts
+          - ccache
         state: present
         update_cache: yes
 
-    - name: Clean and recreate work directory
-      file:
-        path: "{{ work_dir }}"
-        state: absent
-
-    - name: Create work directory
-      file:
-        path: "{{ work_dir }}"
-        state: directory
-        mode: '0755'
-
-    - name: Clone Pop!_OS kernel source
+    - name: Ensure Pop!_OS kernel source is present and up to date
       git:
         repo: "{{ pop_os_kernel_repo }}"
         dest: "{{ kernel_source_dir }}"
         version: "{{ pop_os_kernel_branch }}"
         depth: 1
+        update: yes
 
     - name: Get CPU information
       command: cat /proc/cpuinfo
@@ -75,8 +66,13 @@
           CONFIG_GENERIC_CPU=n
           CONFIG_MNATIVE=y
           
+          # Default CPU governor
+          CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y
+          CONFIG_CPU_FREQ_GOV_POWERSAVE=y
+          
           # Power management
-          CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE=y
+          CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y
+          #CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE=y
           CONFIG_CPU_FREQ_GOV_ONDEMAND=y
           CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
           CONFIG_INTEL_IDLE=y
@@ -84,6 +80,10 @@
           CONFIG_INTEL_PSTATE=y
           CONFIG_ACPI_CPPC_CPUFREQ=y
           
+          # NVIDIA hybrid laptops (ensure seamless PRIME / suspend)
+          CONFIG_DRM_SIMPLEDRM=n
+          CONFIG_DRM_NOUVEAU=m
+
           # Disable unnecessary features
           CONFIG_FB_BOOT_VESA_SUPPORT=n
           CONFIG_FRAMEBUFFER_CONSOLE=n
@@ -123,6 +123,14 @@
           # FANCY STUFF
           #
           
+          # Filesystem optimizations
+          CONFIG_BTRFS_FS=y
+          CONFIG_BTRFS_FS_POSIX_ACL=y
+          CONFIG_BTRFS_FS_CHECK_INTEGRITY=n
+          CONFIG_BTRFS_FS_RUN_SANITY_TESTS=n
+          CONFIG_BTRFS_FS_REF_VERIFY=n
+          CONFIG_BTRFS_FS_COMPRESSION_ZSTD=y
+
           # Zswap configuration with LZ4
           CONFIG_ZSWAP=y
           CONFIG_ZSWAP_COMPRESSOR_DEFAULT_LZ4=y
@@ -137,7 +145,14 @@
           CONFIG_LRU_GEN=y
           CONFIG_LRU_GEN_ENABLED=y
           CONFIG_LRU_GEN_STATS=y
-
+          
+          # Debugging / unnecessary features OFF
+          CONFIG_DEBUG_KERNEL=n
+          CONFIG_PM_DEBUG=n
+          CONFIG_PM_ADVANCED_DEBUG=n
+          CONFIG_KASAN=n
+          CONFIG_KCOV=n
+          CONFIG_KUNIT=n
     - name: Copy current kernel config as base
       shell: |
         if [ -f /boot/config-$(uname -r) ]; then
@@ -162,8 +177,10 @@
       shell: |
         export DEB_BUILD_OPTIONS='nocheck parallel=$(nproc)'
         export DPKG_FLAGS='-d'
-        make -j$(nproc) clean
-        make -j$(nproc) bindeb-pkg KDEB_PKGVERSION=$(make kernelversion)-1
+        export CC="ccache gcc"
+
+        # make -j$(nproc) clean
+        make -j$(($(nproc) * 2)) bindeb-pkg KDEB_PKGVERSION=$(make kernelversion)-1
       args:
         chdir: "{{ kernel_source_dir }}"
       register: build_result
@@ -233,11 +250,11 @@
         current_options=$(cat /proc/cmdline | sed 's/BOOT_IMAGE=[^ ]* //g')
                 
         # Create loader entry
-        cat > /boot/efi/loader/entries/pop-os-custom.conf << EOF
+        cat > /boot/efi/loader/entries/pop-os-custom-${kernel_version}.conf << EOF
         title Pop!_OS (Custom ${kernel_version})
         linux /EFI/Pop_OS-${kernel_version}/vmlinuz.efi
         initrd /EFI/Pop_OS-${kernel_version}/initrd.img
-        options ${current_options}
+        options ${current_options} nvidia-drm.modeset=1 i915.enable_psr=1 pcie_aspm.policy=powersupersave
         EOF
         
         # Copy kernel and initrd to EFI partition
