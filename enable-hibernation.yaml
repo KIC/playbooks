@@ -1,0 +1,104 @@
+# NOTE This playbook is currently only a concept!!
+
+---
+- name: Enable Hibernation with External Swapfile on Pop!_OS
+  hosts: "{{ _host_ | default('localhost') }}"
+  become: yes
+  vars:
+    hibernate_mount: "/mnt/hibernation"
+    swapfile_path: "/mnt/hibernation/swapfile"
+    fake_swap_uuid: "1234-5678"
+    swappiness: 0
+    resume_entry: "/boot/efi/loader/entries/pop-os-hibernate.conf"
+    loader_conf: "/boot/efi/loader/loader.conf"
+
+  tasks:
+    - name: Ensure hibernation mount point exists
+      file:
+        path: "{{ hibernate_mount }}"
+        state: directory
+        mode: '0755'
+
+    - name: Get total system RAM in kB
+      command: grep MemTotal /proc/meminfo
+      register: meminfo
+      changed_when: false
+
+    - name: Calculate swapfile size (60% of RAM, in MiB)
+      set_fact:
+        swapfile_size_mb: "{{ ((meminfo.stdout.split()[1]|int) * 0.6 // 1024)|int }}"
+
+    - name: Create swapfile with zstd compression (sparse, max compression)
+      shell: |
+        fallocate -l {{ swapfile_size_mb }}M {{ swapfile_path }}
+        chattr +C {{ swapfile_path }} || true
+        mkswap -L HIBERNATE_SWAP {{ swapfile_path }}
+        chmod 600 {{ swapfile_path }}
+      args:
+        creates: "{{ swapfile_path }}"
+
+    - name: Set swappiness and disable swap
+      sysctl:
+        name: vm.swappiness
+        value: "{{ swappiness }}"
+        state: present
+        sysctl_set: yes
+        reload: yes
+
+    - name: Ensure swapfile is not enabled at boot (noauto in fstab)
+      blockinfile:
+        path: /etc/fstab
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - HIBERNATION SWAPFILE"
+        block: |
+          UUID={{ fake_swap_uuid }} none swap sw,noauto,pri=0 0 0
+
+    - name: Get swapfile offset for resume
+      shell: "filefrag -v {{ swapfile_path }} | awk '/ 0:/ {print $4}' | sed 's/\.\..*//'"
+      register: swap_offset
+      changed_when: false
+
+    - name: Create systemd-boot entry for hibernation
+      copy:
+        dest: "{{ resume_entry }}"
+        content: |
+          title Pop!_OS (Hibernate Resume)
+          linux /EFI/Pop_OS/vmlinuz.efi
+          initrd /EFI/Pop_OS/initrd.img
+          options root=UUID=$(findmnt -no UUID /) resume=UUID={{ fake_swap_uuid }} resume_offset={{ swap_offset.stdout }} quiet splash
+
+    - name: Set hibernation entry as default in loader.conf
+      blockinfile:
+        path: "{{ loader_conf }}"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - HIBERNATION DEFAULT"
+        block: |
+          default pop-os-hibernate.conf
+
+    - name: Enable hibernate in polkit
+      copy:
+        dest: /etc/polkit-1/localauthority/50-local.d/enable-hibernate.pkla
+        content: |
+          [Enable Hibernate]
+          Identity=unix-user:*
+          Action=org.freedesktop.upower.hibernate;org.freedesktop.login1.hibernate
+          ResultActive=yes
+
+    - name: Create systemd service to hibernate on low battery
+      copy:
+        dest: /etc/systemd/system/hibernate-on-low-battery.service
+        content: |
+          [Unit]
+          Description=Hibernate on low battery
+          After=multi-user.target
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/bin/bash -c 'while true; do if [ $(cat /sys/class/power_supply/BAT*/capacity) -le 5 ]; then systemctl hibernate; fi; sleep 60; done'
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable hibernate-on-low-battery service
+      systemd:
+        name: hibernate-on-low-battery.service
+        enabled: yes
+        state: started
