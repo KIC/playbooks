@@ -44,6 +44,20 @@
         version: "{{ pop_os_kernel_branch }}"
         depth: 1
         update: yes
+        force: yes
+
+    - name: Get kernel version from Makefile
+      command: make --no-print-directory -C {{ kernel_source_dir }} kernelversion
+      register: kernelversion_cmd
+      changed_when: false
+
+    - name: Save kernel version
+      command: |
+        echo {{ kernelversion_cmd.stdout }} > /var/custom_kernel_version.txt
+
+    - name: Show kernel version
+      ansible.builtin.debug:
+        msg: "Kernel Version: {{ kernelversion_cmd.stdout }}" 
 
     - name: Get CPU information
       command: cat /proc/cpuinfo
@@ -173,6 +187,16 @@
       args:
         chdir: "{{ kernel_source_dir }}"
 
+    - name: Check if kernel image .deb exists for current version
+      stat:
+        path: "{{ work_dir }}/linux/linux-image-{{ kernelversion_cmd.stdout }}+_{{ kernelversion_cmd.stdout }}-1_amd64.deb"
+      register: kernel_image_deb
+
+    - name: Kernel .deb files already exists 
+      ansible.builtin.debug:
+        msg: "deb files already exist: {{ work_dir }}/linux/linux-image-{{ kernelversion_cmd.stdout }}+_{{ kernelversion_cmd.stdout }}-1_amd64.deb"
+      when: kernel_image_deb.stat.exists
+
     - name: Build kernel
       shell: |
         export DEB_BUILD_OPTIONS='nocheck parallel=$(nproc)'
@@ -184,19 +208,15 @@
       args:
         chdir: "{{ kernel_source_dir }}"
       register: build_result
-
-    - name: Debug - Show build result
-      debug:
-        var: build_result
-      when: debug_mode | bool
+      when: not kernel_image_deb.stat.exists
 
     - name: Install custom kernel and headers
       apt:
         deb: "{{ item }}"
         state: present
       with_fileglob:
-        - "{{ work_dir }}/linux-image-*.deb"
-        - "{{ work_dir }}/linux-headers-*.deb"
+        - "{{ work_dir }}/linux/linux-image-[0-9]*.deb"
+        - "{{ work_dir }}/linux/linux-headers-[0-9]*.deb"
       tags: ["install"]
 
     - name: Verify kernel modules installation
@@ -210,11 +230,10 @@
         ls -l /lib/modules/
         
         # Get our custom kernel version
-        version="$(make -C {{ kernel_source_dir }} kernelversion | grep -o '^[0-9].*')+"
+        version="{{ kernelversion_cmd.stdout | trim }}"
         echo -e "\n=== Modules for our custom kernel ${version} ==="
         find "/lib/modules/${version}" -type f -name "*.ko*" | head -n 5
         echo "... (showing first 5 modules only)"
-        
         # Check DKMS status for our version
         echo -e "\n=== DKMS Status for ${version} ==="
         dkms status | grep "${version}"
