@@ -28,12 +28,17 @@
         - "deb http://archive.ubuntu.com/ubuntu/ {{ release }}-updates main restricted universe multiverse"
         - "deb http://security.ubuntu.com/ubuntu/ {{ release }}-security main restricted universe multiverse"
 
-    #- name: add google chrome repository
-    #  become: yes
-    #  ansible.builtin.apt_repository:
-    #    repo: deb http://dl.google.com/linux/chrome/deb/ stable main
-    #    state: present
-        
+    - name: Install AppImage Cli Tool
+      ansible.builtin.shell: |
+        wget https://github.com/AppImageCrafters/appimage-cli-tool/releases/latest/download/appimage-cli-tool-0.1.4-x86_64.AppImage -O /usr/local/bin/appimage
+        chmod +x /usr/local/bin/appimage
+      become: yes
+
+    - name: Install uv via pipx and isd systemd tool
+      ansible.builtin.shell: |
+        pipx install -U uv
+        uv tool install isd-tui
+
     - name: Install basis software
       become: yes
       apt:
@@ -218,6 +223,7 @@
           alias my-os="lsb_release -a"
           alias yt-dlp-audio='yt-dlp_linux -f bestaudio --extract-audio --audio-format mp3 --audio-quality 0'
           alias git-force-pull-master='git fetch --all && git reset --hard origin/master'
+          alias show_services='systemctl list-unit-files --type=service --state=enabled'
           systemctl() { [[ "${1-}" == "log" ]] && /usr/bin/journalctl -u "${@:2}" || /usr/bin/systemctl "$@"; }
           gen-token() { echo "$1" | sha256sum | base64; }
           dockersh() { docker exec -it "$1" sh; }
@@ -298,3 +304,21 @@
       loop:
         - { regexp: '^HISTSIZE=', line: 'HISTSIZE=-1' }
         - { regexp: '^HISTFILESIZE=', line: 'HISTFILESIZE=-1' }
+
+    - name: Stop and disable listed services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      loop:
+        - speech-dispatcherd
+        - whoopsie
+        - apport-autoreport
+        - phpsessionclean.timer
+        - ua-timer.timer
+        - motd-news.timer
+        - man-db.timer
+        - openvpn
+        - postfix.service
+        - ua-reboot-cmds.service
+        - binfmt-support.service

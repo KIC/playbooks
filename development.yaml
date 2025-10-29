@@ -108,7 +108,6 @@
           - tensorflow-probability
           - torch 
           - lets-plot
-          - uv
 
     - name: pyenv and poetry
       become: no

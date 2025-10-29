@@ -29,6 +29,8 @@ if not running on localhost:
 ansible-playbook basis.yaml -kK --extra-vars "_host_=localhost"
 ```
 
+Later, ask AI if there is something we could adopt from Zen/liquorix kernel
+
 
 ## Multiple Screen with different/fractional scaling
 currently only possible with wayland and breezy desktop
@@ -75,3 +77,21 @@ Like create a seperate boot entry:
 * Copy the existing loader entry from `/boot/efi/loader/entries/Pop_OS-current.conf` to a new file, e.g. `/boot/efi/loader/entries/Pop_OS-nvidia-modeset.conf`
 * Edit the new .conf file to add or modify the kernel command line to include nvidia-drm.modeset=1 in the options line.
 * On boot, systemd-boot will show both entries. You can select the new one to boot with the NVIDIA modeset option enabled.
+
+# Nvidia Test
+snap install gpu-burn
+
+# Pipewire
+check for problems in the log `journalctl --user-unit=pipewire -f` change the pipewire default.quantum parameters
+```
+sudo mkdir -p /etc/pipewire
+sudo cp /usr/share/pipewire/*.conf /etc/pipewire/
+sudo vim /etc/pipewire/pipewire.conf
+```
+
+then change / uncomment
+```
+default.clock.quantum = 2048
+default.clock.min-quantum = 1024
+default.clock.max-quantum = 4096
+```
