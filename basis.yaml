@@ -102,6 +102,8 @@
           - adb
           - powertop
           - rdfind
+          - firejail
+          - convmv
         state: latest
 
     - name: Post privoxy - Ensure no_proxy includes localhost is set permanently system-wide
@@ -228,6 +230,7 @@
           gen-token() { echo "$1" | sha256sum | base64; }
           dockersh() { docker exec -it "$1" sh; }
           killbyname() { ps aux | grep "$1" | grep -v grep | grep -v "$0" | awk '{print $2}' | xargs -r kill -9; }
+          alias syslog='journalctl -p err'       
         marker: "# {mark} ANSIBLE MANAGED BLOCK - GLOBAL ALIASES"
           
     - name: Personal Aliases

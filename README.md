@@ -65,7 +65,7 @@ if you have ipython installed and want to add the matplotlib package to it, you 
 # Add to playbook later
 * battop https://github.com/svartalf/rust-battop/releases
 * onlyoffice from flathub https://flathub.org/apps/org.onlyoffice.desktopeditors
-
+* kayd - a deamon to swap keys and cahnge the keyboard layout i.e. can also change capslock
 
 # Wayland
 * enable wayland in gdm conf: `sudo nano /etc/gdm3/custom.conf`
@@ -95,3 +95,31 @@ default.clock.quantum = 2048
 default.clock.min-quantum = 1024
 default.clock.max-quantum = 4096
 ```
+
+## Fluidsynth
+also disable fluidsynth
+```
+systemctl --user stop fluidsynth.service
+systemctl --user disable fluidsynth.service
+```
+
+Only start it when midi files need to be played
+
+## Other potentially not needed services
+evolution-addressbook-factory.service, evolution-calendar-factory.service, evolution-source-registry.service: These are related to GNOME Evolution. If you do not use Evolution email/calendar/contact apps, you can disable these to save resources.
+
+tracker-miner-fs-3.service: Related to GNOME Tracker file system metadata indexing. If you do not use GNOME search or indexing features actively, disabling this can reduce resource use.
+
+speech-dispatcher.socket: Text to speach syntesis
+
+
+systemctl --user stop tracker-miner-fs-3.service 
+systemctl --user stop speech-dispatcher.socket 
+systemctl --user stop evolution-addressbook-factory.service 
+systemctl --user stop evolution-source-registry.service
+
+systemctl --user disable tracker-miner-fs-3.service
+systemctl --user disable speech-dispatcher.socket
+systemctl --user disable evolution-addressbook-factory.service
+systemctl --user disable evolution-source-registry.service
+

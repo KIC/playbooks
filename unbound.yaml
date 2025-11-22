@@ -1,0 +1,108 @@
+---
+- hosts: all
+  become: true
+
+  tasks:
+    - name: Ensure apt cache is up to date
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install Unbound
+      apt:
+        name: unbound
+        state: present
+        update_cache: yes
+
+    - name: Deploy Unbound minimal configuration
+      copy:
+        dest: /etc/unbound/unbound.conf
+        content: |
+          server:
+            interface: 127.0.0.1
+            port: 53
+            do-not-query-localhost: no
+            access-control: 127.0.0.1/24 allow
+            do-ip6: yes
+            hide-identity: yes
+            hide-version: yes
+            harden-shortbuf: yes
+            qname-min-length: 2
+            edns-buffer-size: 4096
+            minimal-responses: yes
+            prefetch: yes
+          forward-zone:
+            name: "."
+            forward-addr: 1.1.1.1
+            forward-addr: 8.8.8.8
+        owner: root
+        group: root
+        mode: '0644'
+      notify:
+        - Restart unbound
+
+    - name: Ensure Unbound is enabled and running
+      systemd:
+        name: unbound
+        state: started
+        enabled: true
+
+    - name: Check if systemd-resolved is active
+      command: systemctl is-active systemd-resolved
+      register: resolved_status
+      failed_when: false
+
+    - name: Stop and disable systemd-resolved if active
+      systemd:
+        name: systemd-resolved
+        state: stopped
+        enabled: no
+      when: resolved_status.stdout.find("active") != -1
+
+    - name: Create or touch /etc/resolv.conf
+      file:
+        path: /etc/resolv.conf
+        state: touch
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Set nameserver to 127.0.0.1 in resolv.conf
+      lineinfile:
+        path: /etc/resolv.conf
+        regexp: '^nameserver'
+        line: 'nameserver 127.0.0.1'
+        create: yes
+
+    - name: Deploy NetworkManager dispatcher script to enforce Unbound DNS
+      copy:
+        dest: /etc/NetworkManager/dispatcher.d/99-unbound-dns
+        content: |
+          #!/bin/bash
+          IFACE=$1
+          STATUS=$2
+
+          if [ "$STATUS" = "up" ]; then
+            echo "Network $IFACE is up - setting DNS to 127.0.0.1 for Unbound"
+            echo "nameserver 127.0.0.1" > /etc/resolv.conf
+            systemctl restart unbound
+            if systemctl is-active --quiet systemd-resolved; then
+              systemctl restart systemd-resolved
+            fi
+            echo "DNS set to Unbound at 127.0.0.1"
+          fi
+        owner: root
+        group: root
+        mode: '0755'
+
+  handlers:
+    - name: Restart unbound
+      systemd:
+        name: unbound
+        state: restarted
+
+    - name: Restart systemd-resolved
+      systemd:
+        name: systemd-resolved
+        state: restarted
+

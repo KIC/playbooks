@@ -1,0 +1,38 @@
+---
+- hosts: "{{ _host_ | default('localhost') }}"
+  become: true
+  tasks:
+    - name: Install prerequisites
+      apt:
+        name:
+          - curl
+          - gnupg
+          - apt-transport-https
+        state: present
+        update_cache: yes
+
+    - name: Add Syncthing release key
+      ansible.builtin.apt_key:
+        url: https://syncthing.net/release-key.txt
+        state: present
+
+    - name: Add Syncthing repository
+      ansible.builtin.apt_repository:
+        repo: "deb https://apt.syncthing.net/ syncthing release"
+        state: present
+
+    - name: Update apt cache after adding Syncthing repo
+      apt:
+        update_cache: yes
+
+    - name: Install Syncthing package
+      apt:
+        name: syncthing
+        state: latest
+
+    - name: Enable and start Syncthing service
+      systemd:
+        name: syncthing@{{ lookup('env', 'USER') }}
+        state: started
+        enabled: yes
+
