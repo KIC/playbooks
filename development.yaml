@@ -215,3 +215,11 @@
         state: started
         enabled: yes
 
+    - name: Environment
+      become: yes
+      copy:
+        dest: /etc/profile.d/develop_env.sh
+        content: |
+          export PYTEST_ADDOPTS="-s"
+
+          

@@ -5,6 +5,9 @@ run playbooks locally with arguments
 ## install ansible
 sudo apt install ansible
 
+# add localhost as default host
+sudo mkdir -p /etc/ansible && echo "localhost ansible_connection=local" | sudo tee -a /etc/ansible/hosts
+
 ## install general purpose basis software, disable ipv6, disable spectre, etc
 ansible-playbook basis.yaml -K
 
