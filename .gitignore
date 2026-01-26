@@ -3,5 +3,5 @@ scratch.yaml
 kic.yaml
 kic/.config/nvim/.git*
 *.swp
-garuda/*git*
+garuda/.git*
 
