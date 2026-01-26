@@ -1,5 +1,5 @@
 ---
-- name: Replace system DNS with Unbound server
+- name: Replace systemd-resolved with Unbound
   hosts: all
   become: yes
   tasks:
@@ -16,30 +16,28 @@
             interface: 127.0.0.1
             interface: ::1
             port: 53
-            do-not-query-localhost: no
-            access-control: 127.0.0.1/24 allow
-            access-control: ::1/128 allow
             do-ip6: yes
+            do-not-query-localhost: no
+            access-control: 127.0.0.0/8 allow
+            access-control: ::1/128 allow
             hide-identity: yes
             hide-version: yes
-            #harden-shortbuf: yes
-            #qname-min-length: 2
             edns-buffer-size: 4096
             minimal-responses: yes
             prefetch: yes
+            num-threads: 2
+            so-rcvbuf: 4m
           forward-zone:
             name: "."
+            forward-tls-upstream: yes
             forward-addr: 1.1.1.1
             forward-addr: 2606:4700:4700::1111
             forward-addr: 8.8.8.8
             forward-addr: 2001:4860:4860::8888
       notify: Restart Unbound
 
-    - name: Enable and start Unbound service
-      service:
-        name: unbound
-        enabled: yes
-        state: started
+    - name: Validate Unbound configuration
+      command: unbound-checkconf /etc/unbound/unbound.conf
 
     - name: Disable DNSStubListener in systemd-resolved
       ini_file:
@@ -48,48 +46,69 @@
         option: DNSStubListener
         value: no
 
-    - name: Ensure Unbound restarts on failure
-      file:
-        path: /etc/systemd/system/unbound.service.d
-        state: directory
-      notify: Reload systemd and restart Unbound
-
-    - name: Create restart drop-in for Unbound
-      copy:
-        dest: /etc/systemd/system/unbound.service.d/restart.conf
-        content: |
-          [Service]
-          Restart=on-failure
-          RestartSec=1
-      notify: Reload systemd and restart Unbound
-
-    - name: Stop and disable systemd-resolved
+    - name: Stop systemd-resolved early to free port 53
       service:
         name: systemd-resolved
-        enabled: no
         state: stopped
-      ignore_errors: yes  # In case it's not running
+        enabled: no
+      ignore_errors: yes
 
-    - name: Set resolv.conf to use local DNS
+    - name: Enable and start Unbound
+      service:
+        name: unbound
+        enabled: yes
+        state: started
+
+    - name: Make resolv.conf use local Unbound and immutable
       copy:
         dest: /etc/resolv.conf
         content: |
           nameserver 127.0.0.1
           nameserver ::1
+      notify: Restart Unbound
 
-    - name: Create NetworkManager dispatcher script
+    - name: Protect resolv.conf from overwrites
+      file:
+        path: /etc/resolv.conf
+        mode: '0644'
+        owner: root
+        group: root
+
+    - name: Create systemd drop-in for Unbound restart policy
+      file:
+        path: /etc/systemd/system/unbound.service.d
+        state: directory
+      notify: handler systemd-reload-unbound
+
+    - name: Unbound restart drop-in config
       copy:
-        dest: /etc/NetworkManager/dispatcher.d/10-enforce-unbound-dns
+        dest: /etc/systemd/system/unbound.service.d/restart.conf
         content: |
-          #!/bin/bash
-          interface=$1
-          status=$2
+          [Service]
+          Restart=on-failure
+          RestartSec=1s
+      notify: handler systemd-reload-unbound
 
-          if [ "$status" = "up" ]; then
-              nmcli con mod "$interface" ipv4.dns "127.0.0.1"
-              nmcli con mod "$interface" ipv6.dns "::1"
-          fi
-        mode: '0755'
+    - name: NM dispatcher script only if NetworkManager present
+      block:
+        - name: Create NM dispatcher for Unbound DNS
+          copy:
+            dest: /etc/NetworkManager/dispatcher.d/10-unbound-dns
+            content: |
+              #!/bin/bash
+              IFACE=$1
+              ACTION=$2
+              if [ "$ACTION" = "up" ] || [ "$ACTION" = "dhcp4-change" ] || [ "$ACTION" = "dhcp6-change" ]; then
+                CONN=$(nmcli -t -f NAME dev "$IFACE")
+                if [ -n "$CONN" ]; then
+                  nmcli con mod "$CONN" ipv4.dns "127.0.0.1 ;" ipv4.ignore-auto-dns yes
+                  nmcli con mod "$CONN" ipv6.dns "::1 ;" ipv6.ignore-auto-dns yes
+                  nmcli con reload
+                  nmcli con up "$CONN"
+                fi
+              fi
+            mode: '0755'
+      when: ansible_facts.service_mgr == "systemd" and "'NetworkManager.service' in ansible_facts.services"
 
   handlers:
     - name: Restart Unbound
@@ -97,7 +116,7 @@
         name: unbound
         state: restarted
 
-    - name: Reload systemd and restart Unbound
+    - name: handler systemd-reload-unbound
       systemd:
         daemon_reload: yes
       service:
