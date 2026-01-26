@@ -41,6 +41,13 @@
         enabled: yes
         state: started
 
+    - name: Disable DNSStubListener in systemd-resolved
+      ini_file:
+        path: /etc/systemd/resolved.conf
+        section: Resolve
+        option: DNSStubListener
+        value: no
+
     - name: Ensure Unbound restarts on failure
       file:
         path: /etc/systemd/system/unbound.service.d
