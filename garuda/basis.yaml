@@ -1,0 +1,77 @@
+---
+- name: Install Custom Cachyos Kernel for Garuda Linux
+  hosts: localhost
+  become: yes
+  vars:
+    # also had "quiet" and "resume=UUID=5067b521-24b9-4173-92b1-5fef7bb6b8ff" 
+    grub_params: "loglevel=3 intel_pstate=active amd_iommu=off i915.enable_rc6=1 i915.enable_psr=1 i915.enable_fbc=1"
+  tasks:
+      - name: Ensure base build tools and system dependencies are installed
+        ansible.builtin.package:
+          name:
+            - util-linux
+          state: present
+
+      - name: Get total RAM in bytes
+        ansible.builtin.shell: lsmem -b --summary=only | sed -ne '/online/s/.* //p'
+        register: ram_output
+
+      - name: Set GRUB parameters including AMD GPU GTT size
+        ansible.builtin.set_fact:
+          grub_params: "{{ grub_params }} amdgpu.gttsize={{ ram_output.stdout }} ttm.pages_limit={{ ram_output.stdout }}"
+
+      - name: Get current GRUB_CMDLINE_LINUX_DEFAULT
+        ansible.builtin.command: grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub
+        register: current_grub
+        changed_when: false
+
+      - name: Extract current parameters
+        ansible.builtin.set_fact:
+          current_params: "{{ current_grub.stdout | regex_replace('^GRUB_CMDLINE_LINUX_DEFAULT=\"(.*)\"$', '\\1') }}"
+
+      - name: Extract resume parameter
+        ansible.builtin.set_fact:
+          resume_param: "{{ current_params | regex_findall('resume=UUID=[^ ]+') | first | default('') }}"
+
+      - name: Append resume parameter to GRUB params
+        ansible.builtin.set_fact:
+          grub_params: "{{ resume_param }} {{ grub_params }}"
+        when: resume_param != ''
+
+      - name: Set GRUB default kernel parameters
+        ansible.builtin.lineinfile:
+          path: /etc/default/grub
+          regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+          line: 'GRUB_CMDLINE_LINUX_DEFAULT="{{ grub_params }}"'
+        notify: update-grub
+
+      - name: Create disable-turbo-battery service
+        ansible.builtin.copy:
+          dest: /etc/systemd/system/disable-turbo-battery.service
+          content: |
+            [Unit]
+            Description=Disable Intel Turbo on Battery
+            After=multi-user.target
+
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStart=/bin/bash -c 'if [ -f /sys/module/intel_pstate/parameters/no_turbo ] && ! on_ac_power; then echo 1 > /sys/module/intel_pstate/parameters/no_turbo; fi'
+            ExecStop=/bin/bash -c 'if [ -f /sys/module/intel_pstate/parameters/no_turbo ] && on_ac_power; then echo 0 > /sys/module/intel_pstate/parameters/no_turbo; fi'
+
+            [Install]
+            WantedBy=multi-user.target
+
+      - name: Reload systemd daemon
+        ansible.builtin.systemd:
+          daemon_reload: yes
+
+      - name: Enable and start disable-turbo-battery service
+        ansible.builtin.systemd:
+          name: disable-turbo-battery
+          enabled: yes
+          state: started
+
+  handlers:
+    - name: update-grub
+      ansible.builtin.command: update-grub

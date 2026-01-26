@@ -1,0 +1,98 @@
+---
+- name: Replace system DNS with Unbound server
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install Unbound
+      package:
+        name: unbound
+        state: present
+
+    - name: Configure Unbound
+      copy:
+        dest: /etc/unbound/unbound.conf
+        content: |
+          server:
+            interface: 127.0.0.1
+            interface: ::1
+            port: 53
+            do-not-query-localhost: no
+            access-control: 127.0.0.1/24 allow
+            access-control: ::1/128 allow
+            do-ip6: yes
+            hide-identity: yes
+            hide-version: yes
+            #harden-shortbuf: yes
+            #qname-min-length: 2
+            edns-buffer-size: 4096
+            minimal-responses: yes
+            prefetch: yes
+          forward-zone:
+            name: "."
+            forward-addr: 1.1.1.1
+            forward-addr: 2606:4700:4700::1111
+            forward-addr: 8.8.8.8
+            forward-addr: 2001:4860:4860::8888
+      notify: Restart Unbound
+
+    - name: Enable and start Unbound service
+      service:
+        name: unbound
+        enabled: yes
+        state: started
+
+    - name: Ensure Unbound restarts on failure
+      file:
+        path: /etc/systemd/system/unbound.service.d
+        state: directory
+      notify: Reload systemd and restart Unbound
+
+    - name: Create restart drop-in for Unbound
+      copy:
+        dest: /etc/systemd/system/unbound.service.d/restart.conf
+        content: |
+          [Service]
+          Restart=on-failure
+          RestartSec=1
+      notify: Reload systemd and restart Unbound
+
+    - name: Stop and disable systemd-resolved
+      service:
+        name: systemd-resolved
+        enabled: no
+        state: stopped
+      ignore_errors: yes  # In case it's not running
+
+    - name: Set resolv.conf to use local DNS
+      copy:
+        dest: /etc/resolv.conf
+        content: |
+          nameserver 127.0.0.1
+          nameserver ::1
+
+    - name: Create NetworkManager dispatcher script
+      copy:
+        dest: /etc/NetworkManager/dispatcher.d/10-enforce-unbound-dns
+        content: |
+          #!/bin/bash
+          interface=$1
+          status=$2
+
+          if [ "$status" = "up" ]; then
+              nmcli con mod "$interface" ipv4.dns "127.0.0.1"
+              nmcli con mod "$interface" ipv6.dns "::1"
+          fi
+        mode: '0755'
+
+  handlers:
+    - name: Restart Unbound
+      service:
+        name: unbound
+        state: restarted
+
+    - name: Reload systemd and restart Unbound
+      systemd:
+        daemon_reload: yes
+      service:
+        name: unbound
+        state: restarted

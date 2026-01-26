@@ -1,0 +1,357 @@
+---
+- name: Install Custom Cachyos Kernel for Garuda Linux
+  hosts: localhost
+  become: yes # Default for the play, will be overridden for specific tasks
+  vars:
+    # Define the AUR package name for the Cachyos kernel. This should be verified on the AUR.
+    # 'linux-cachyos' is a common name, but it might vary.
+    kernel_aur_package_name: "linux-cachyos"
+    # The AUR helper to be used. 'yay' is a popular choice.
+    aur_helper: "yay"
+    # Base directory for build and cache
+    build_root_dir: "/var/tmp"
+    # Directory for building the package
+    build_dir: "{{ build_root_dir }}/{{ kernel_aur_package_name }}"
+    # Directory to cache compiled packages to skip recompilation during debugging
+    build_cache_dir: "{{ build_root_dir }}/{{ kernel_aur_package_name }}_cached_pkgs"
+    # Flag to skip makepkg if cached packages exist
+    skip_makepkg: false
+    
+    # User-provided kernel configuration options.
+    # These will be written into a .config file for the kernel build.
+    custom_kernel_config_content: |
+      # General setup
+      CONFIG_64BIT=y
+      CONFIG_SMP=y
+      # Disable 32-bit support
+      CONFIG_COMPAT=n
+      CONFIG_X86_32=n
+      
+      # CPU-specific optimizations (will be detected during build)
+      CONFIG_GENERIC_CPU=n
+      CONFIG_MNATIVE=y
+      
+      # Default CPU governor
+      CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y
+      CONFIG_CPU_FREQ_GOV_POWERSAVE=y
+      
+      # Power management
+      CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y
+      #CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE=y
+      CONFIG_CPU_FREQ_GOV_ONDEMAND=y
+      CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
+      CONFIG_INTEL_IDLE=y
+      CONFIG_CPU_IDLE=y
+      CONFIG_INTEL_PSTATE=y
+      CONFIG_ACPI_CPPC_CPUFREQ=y
+      
+      # NVIDIA hybrid laptops (ensure seamless PRIME / suspend)
+      CONFIG_DRM_SIMPLEDRM=n
+      CONFIG_DRM_NOUVEAU=m
+
+      # Disable unnecessary features
+      CONFIG_FB_BOOT_VESA_SUPPORT=n
+      CONFIG_FRAMEBUFFER_CONSOLE=n
+      CONFIG_LOGO=n
+      CONFIG_CHROME_PLATFORMS=n
+      
+      # Disable security mitigations for performance
+      CONFIG_RETPOLINE=n
+      CONFIG_SPECULATION_BARRIER=n
+      CONFIG_PAGE_TABLE_ISOLATION=n
+      CONFIG_KAISER=n
+      CONFIG_RANDOMIZE_BASE=n
+      CONFIG_RANDOMIZE_MEMORY=n
+      CONFIG_STACKPROTECTOR=n
+      CONFIG_STACKPROTECTOR_STRONG=n
+      CONFIG_VMAP_STACK=n
+      CONFIG_STRICT_KERNEL_RWX=n
+      CONFIG_STRICT_MODULE_RWX=n
+      CONFIG_SECURITY_DMESG_RESTRICT=n
+      CONFIG_STATIC_USERMODEHELPER=n
+      
+      # Enable modern features
+      CONFIG_PREEMPT=y
+      CONFIG_HIGH_RES_TIMERS=y
+      CONFIG_NO_HZ_FULL=y
+      CONFIG_RCU_NOCB_CPU=y
+      CONFIG_NUMA=y
+      CONFIG_TRANSPARENT_HUGEPAGE=y
+      
+      # Power saving features
+      CONFIG_PM_AUTOSLEEP=y
+      CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y
+      CONFIG_PM_WAKELOCKS=y
+      CONFIG_ENERGY_MODEL=y
+      CONFIG_CPU_FREQ_GOV_PERFORMANCE=y
+      CONFIG_PSI=y
+      CONFIG_ACPI_PROCESSOR_IDLE=y
+      CONFIG_X86_FEATURE_NAMES=y
+      CONFIG_HZ_300=y
+      
+      #
+      # FANCY STUFF
+      #
+      
+      # Filesystem optimizations
+      CONFIG_BTRFS_FS=y
+      CONFIG_BTRFS_FS_POSIX_ACL=y
+      CONFIG_BTRFS_FS_CHECK_INTEGRITY=n
+      CONFIG_BTRFS_FS_RUN_SANITY_TESTS=n
+      CONFIG_BTRFS_FS_REF_VERIFY=n
+      CONFIG_BTRFS_FS_COMPRESSION_ZSTD=y
+
+      # Zswap configuration with LZ4
+      CONFIG_ZSWAP=y
+      CONFIG_ZSWAP_COMPRESSOR_DEFAULT_LZ4=y
+      CONFIG_ZSWAP_ZPOOL_DEFAULT_ZBUD=y
+      CONFIG_ZSWAP_DEFAULT_ON=y
+      CONFIG_CRYPTO_LZ4=y
+      CONFIG_CRYPTO_LZ4HC=y
+      CONFIG_Z3FOLD=y
+      CONFIG_ZBUD=y
+      
+      # Multigenerational LRU
+      CONFIG_LRU_GEN=y
+      CONFIG_LRU_GEN_ENABLED=y
+      CONFIG_LRU_GEN_STATS=y
+      
+      # Debugging / unnecessary features OFF
+      CONFIG_DEBUG_KERNEL=n
+      CONFIG_PM_DEBUG=n
+      CONFIG_PM_ADVANCED_DEBUG=n
+      CONFIG_KASAN=n
+      CONFIG_KCOV=n
+      CONFIG_KUNIT=n
+  tasks:
+      - name: Ensure base build tools and system dependencies are installed
+        ansible.builtin.package:
+          name:
+            - base-devel
+            - git
+            - wget
+            - make
+            - gcc
+            - grub
+            - efibootmgr # Required for GRUB on UEFI systems
+            - patch # Common utility for kernel building
+            - bc # Often required by kernel build scripts
+            - python # May be needed by some AUR build scripts or helpers
+            - python-pip # For any pip-dependent tools
+            - pamac
+            - pahole
+            - llvm
+            - clang
+            - rust 
+          state: present
+        # This task needs root privileges, inherits become: yes from the play.
+
+      - name: Check if AUR helper ({{ aur_helper }}) is installed
+        ansible.builtin.stat:
+          path: "/usr/bin/{{ aur_helper }}"
+        register: aur_helper_stat
+        become: no # This task can run as the user
+
+      - name: Update the system to prevent partial update warnings
+        ansible.builtin.command: "pacman -Syu --noconfirm"
+        become: yes
+
+      - name: Ensure temporary directory for kernel build exists (owned by invoking user)
+        ansible.builtin.file:
+          path: "{{ build_dir }}"
+          state: directory
+          mode: '0755'
+          owner: "{{ ansible_env.SUDO_USER | default(ansible_env.USER) }}"
+          group: "{{ ansible_env.SUDO_USER | default(ansible_env.USER) }}"
+        become: yes
+
+      - name: Fetch the {{ kernel_aur_package_name }} AUR package sources
+        ansible.builtin.git:
+          repo: "https://aur.archlinux.org/{{ kernel_aur_package_name }}.git"
+          dest: "{{ build_dir }}"
+          clone: yes
+          update: yes
+          force: yes
+        # Fetching sources into /tmp can be done as user.
+        become: no
+
+      - name: Apply custom kernel config by overwriting upstream config
+        ansible.builtin.copy:
+          dest: "{{ build_dir }}/config"
+          content: "{{ custom_kernel_config_content }}"
+        become: no
+        when: not skip_makepkg
+
+      - name: Ensure build cache directory exists (for skipping compile)
+        ansible.builtin.file:
+          path: "{{ build_cache_dir }}"
+          state: directory
+          mode: '0755'
+          owner: "{{ ansible_env.SUDO_USER | default(ansible_env.USER) }}"
+          group: "{{ ansible_env.SUDO_USER | default(ansible_env.USER) }}"
+        become: yes
+
+      - name: Look for cached packages to reuse
+        ansible.builtin.find:
+          paths: "{{ build_cache_dir }}"
+          patterns: "{{ kernel_aur_package_name }}*.pkg.*"
+          recurse: no
+        register: cached_pkgs
+        become: no
+
+      - name: Set flag to skip makepkg when cached pkgs exist
+        ansible.builtin.set_fact:
+          skip_makepkg: true
+        when: cached_pkgs.matched > 0
+        become: no
+
+      - name: Get package metadata (srcinfo) via makepkg
+        ansible.builtin.shell: >-
+          cd {{ build_dir }} &&
+          makepkg --printsrcinfo
+        register: srcinfo_output
+        changed_when: false
+        failed_when: false
+        become: no
+
+      - name: Extract pkgver from srcinfo
+        ansible.builtin.shell: >-
+          echo "{{ srcinfo_output.stdout | default('') }}" | awk -F'= ' '/^pkgver =/{print $2; exit}'
+        register: pkgver_output
+        changed_when: false
+        become: no
+
+      - name: Set kernel_version_tag fact
+        ansible.builtin.set_fact:
+          kernel_version_tag: "{{ pkgver_output.stdout | default('') | trim }}"
+        become: no
+
+      - name: Check for pamac (Garuda/pamac preferred)
+        ansible.builtin.stat:
+          path: /usr/bin/pamac
+        register: pamac_stat
+        become: no
+
+      - name: Extract makedepends from srcinfo
+        ansible.builtin.shell: >-
+          echo "{{ srcinfo_output.stdout | default('') }}" | awk -F'= ' '/^[[:space:]]*makedepends =/{print $2}' | tr '\n' ' '
+        register: makedepends_output
+        changed_when: false
+        become: no
+
+      - name: Install makedepends via pacman
+        ansible.builtin.command: >-
+          pacman -S --needed --noconfirm {{ makedepends_output.stdout }}
+        become: yes
+        when: makedepends_output.stdout != '' and not ansible_check_mode
+
+      - name: Build the package with makepkg as non-root (unless skipped)
+        ansible.builtin.shell: >-
+          cd {{ build_dir }} && 
+          MAKEFLAGS="-j$(($(nproc) + 1))" 
+          makepkg -L --noextract --noprepare --noconfirm --skipchecksums
+        args:
+          chdir: "{{ build_dir }}"
+        register: makepkg_build
+        failed_when: makepkg_build.rc != 0
+        become: no
+        when: not ansible_check_mode and not (skip_makepkg | default(false))
+
+      - name: Cache built packages
+        ansible.builtin.copy:
+          src: "{{ item }}"
+          dest: "{{ build_cache_dir }}/{{ item | basename }}"
+          remote_src: yes
+          mode: '0644'
+        loop: "{{ lookup('fileglob', build_dir + '/*.pkg.*', wantlist=True) }}"
+        become: yes
+        when: not ansible_check_mode
+
+      - name: Install built packages with pacman (from build cache dir)
+        ansible.builtin.shell: >-
+          pacman -U --noconfirm {{ build_cache_dir }}/*.pkg.*
+        become: yes
+        when: not ansible_check_mode
+
+      - name: Extract pkgname from srcinfo
+        ansible.builtin.shell: >-
+          echo "{{ srcinfo_output.stdout | default('') }}" | awk -F'= ' '/^pkgname =/{print $2; exit}'
+        register: pkgname_output
+        changed_when: false
+        become: no
+
+      - name: Fallback to pkgbase if pkgname empty
+        ansible.builtin.shell: >-
+          echo "{{ srcinfo_output.stdout | default('') }}" | awk -F'= ' '/^pkgbase =/{print $2; exit}'
+        register: pkgbase_output
+        changed_when: false
+        become: no
+        when: pkgname_output.stdout == ''
+
+      - name: Set kernel_pkg_name fact
+        ansible.builtin.set_fact:
+          kernel_pkg_name: "{{ (pkgname_output.stdout | default('') | trim) or (pkgbase_output.stdout | default('') | trim) or kernel_aur_package_name }}"
+        become: no
+
+      - name: Verify installed package via pacman
+        ansible.builtin.command: "pacman -Qi {{ kernel_pkg_name }}"
+        register: pkg_query
+        changed_when: false
+        failed_when: false
+        become: yes
+
+      - name: Derive installed module directory matching pkgver (if any)
+        ansible.builtin.shell: >-
+          ls -1 /lib/modules | grep "{{ kernel_version_tag }}" | sort -V | tail -n1 || true
+        register: installed_module_dir_output
+        changed_when: false
+        failed_when: false
+        become: yes
+
+      - name: Set installed_module_dir fact
+        ansible.builtin.set_fact:
+          installed_module_dir: "{{ installed_module_dir_output.stdout | default('') | trim }}"
+        become: no
+
+      - name: Verify kernel modules directory exists
+        ansible.builtin.stat:
+          path: "/lib/modules/{{ installed_module_dir | default(kernel_version_tag) }}"
+        register: modules_stat
+        become: yes
+
+      - name: Check for kernel image in /boot matching actual installed module dir
+        ansible.builtin.shell: >-
+          ls /boot | grep -E "vmlinuz.*(cachyos|{{ kernel_aur_package_name }})" || true
+        register: vmlinuz_list
+        changed_when: false
+        become: yes
+
+      - name: Fail if the custom kernel does not appear installed
+        ansible.builtin.fail:
+          msg: >-
+            Custom kernel verification failed.
+            Package '{{ kernel_pkg_name }}' installed: {{ pkg_query.rc == 0 }}; /lib/modules/{{ kernel_version_tag }} exists: {{ modules_stat.stat.exists | default(False) }}; /boot vmlinuz found: {{ vmlinuz_list.stdout != '' }}.
+            Inspect {{ build_dir }} and /var/log/pacman.log for details.
+        when: pkg_query.rc != 0 or not (modules_stat.stat.exists | default(false)) or (vmlinuz_list.stdout == '')
+        become: yes
+
+      - name: Remove temporary kernel build directory
+        ansible.builtin.file:
+          path: "{{ build_dir }}"
+          state: absent
+        become: yes # Ensure root can clean up if it was created by root.
+
+      - name: Update GRUB configuration to include the new kernel
+        ansible.builtin.command: update-grub
+        changed_when: true
+        become: yes
+
+      - name: Inform user about the successful installation and next steps
+        ansible.builtin.debug:
+          msg: >
+            Custom {{ kernel_aur_package_name }} kernel has been successfully installed.
+            GRUB configuration has been updated.
+            A system reboot is required to boot into the new kernel.
+            After rebooting, the new kernel should appear in the GRUB menu along with your current kernel.
+            Future updates for this kernel should be managed via 'garuda-update'.
+        become: no # Informing the user doesn't need root
