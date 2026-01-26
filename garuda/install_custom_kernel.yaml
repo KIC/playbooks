@@ -142,9 +142,28 @@
             - pahole
             - llvm
             - clang
-            - rust 
+            - rust
+            - rustup
           state: present
         # This task needs root privileges, inherits become: yes from the play.
+
+      # Install and configure rustup for Garuda Linux (system rust + servo-git)
+      - name: Link system rust toolchain to rustup
+        command: rustup toolchain link system /usr
+        args:
+          creates: "/home/{{ ansible_env.SUDO_USER | default(ansible_user) }}/.rustup/toolchains/system"
+        environment:
+          PATH: "{{ ansible_env.PATH }}:/home/{{ ansible_user }}/.cargo/bin"
+
+      - name: Verify Rust toolchain works for kernel build
+        shell: |
+          rustc --version && cargo --version
+        register: rust_verify
+        changed_when: false
+        failed_when: rust_verify.rc != 0
+        environment:
+          PATH: "{{ ansible_env.PATH }}:{{ ansible_user_dir }}/.cargo/bin"
+        become: no
 
       - name: Check if AUR helper ({{ aur_helper }}) is installed
         ansible.builtin.stat:
@@ -249,7 +268,8 @@
         ansible.builtin.shell: >-
           cd {{ build_dir }} && 
           MAKEFLAGS="-j$(($(nproc) + 1))" 
-          makepkg -L --noextract --noprepare --noconfirm --skipchecksums
+          # was: makepkg -L --noextract --noprepare --noconfirm --skipchecksums
+          makepkg -L --cleanbuild --syncdeps --noconfirm --skipchecksums
         args:
           chdir: "{{ build_dir }}"
         register: makepkg_build
@@ -355,3 +375,28 @@
             After rebooting, the new kernel should appear in the GRUB menu along with your current kernel.
             Future updates for this kernel should be managed via 'garuda-update'.
         become: no # Informing the user doesn't need root
+
+      # Optiopnal make nee kernel default
+      - name: Get GRUB menu entry name for custom kernel
+        ansible.builtin.shell: |
+          awk -v pkg="{{ kernel_pkg_name }}" -v ver="{{ kernel_version_tag }}" '
+          /menuentry / && ($0 ~ pkg || $0 ~ ver) {
+            match($0, /'[^']+'/, arr); 
+            print arr[0]; exit
+          }' /boot/grub/grub.cfg || echo "Advanced options for {{ kernel_pkg_name }}"
+        register: grub_entry_name
+        changed_when: false
+        become: yes
+
+      - name: Set custom kernel as GRUB default
+        ansible.builtin.lineinfile:
+          path: /etc/default/grub
+          regexp: '^GRUB_DEFAULT='
+          line: 'GRUB_DEFAULT="Advanced options for {{ kernel_pkg_name }}>0"'
+          backup: yes
+        become: yes
+        notify: regenerate grub
+
+      - name: Regenerate GRUB configuration after default change
+        ansible.builtin.command: update-grub
+        become: yes

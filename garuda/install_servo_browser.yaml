@@ -1,0 +1,94 @@
+---
+- name: Install Servo Browser from nightly binaries
+  hosts: localhost
+  become: yes
+  vars:
+    servo_url: "https://download.servo.org/nightly/linux/servo-x86_64-linux-gnu.tar.gz"
+    servo_install_dir: "/opt/servo"
+    servo_tmp_dir: "/tmp/servo-install"
+  tasks:
+    - name: Create temporary directory
+      file:
+        path: "{{ servo_tmp_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Download Servo tarball
+      get_url:
+        url: "{{ servo_url }}"
+        dest: "{{ servo_tmp_dir }}/servo.tar.gz"
+        mode: '0644'
+
+    - name: Ensure installation directory exists
+      file:
+        path: "{{ servo_install_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Extract Servo tarball
+      unarchive:
+        src: "{{ servo_tmp_dir }}/servo.tar.gz"
+        dest: "{{ servo_tmp_dir }}"
+        remote_src: yes
+        creates: "{{ servo_tmp_dir }}/servo/servo"
+
+    - name: Move Servo files to installation directory
+      copy:
+        src: "{{ servo_tmp_dir }}/servo/"
+        dest: "{{ servo_install_dir }}/"
+        remote_src: yes
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Make Servo executable
+      file:
+        path: "{{ servo_install_dir }}/servo"
+        mode: '0755'
+
+    - name: Create symlink for easier access
+      file:
+        src: "{{ servo_install_dir }}/servo"
+        dest: "/usr/local/bin/servo"
+        state: link
+
+    - name: Create Servo desktop file
+      copy:
+        dest: "/usr/share/applications/servo.desktop"
+        content: |
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Servo Browser
+          Comment=Experimental web browser engine written in Rust
+          Exec=/usr/local/bin/servo %U
+          Icon=servo
+          Terminal=false
+          Categories=Network;WebBrowser;
+          StartupNotify=true
+        mode: '0644'
+
+    - name: Create simple Servo icon symlink (optional)
+      file:
+        src: "{{ servo_install_dir }}/resources/gfx/backends/gfx/tests/fixtures/green.png"
+        dest: "/usr/share/icons/hicolor/64x64/apps/servo.png"
+        state: link
+      ignore_errors: yes
+
+    - name: Update desktop database
+      command: update-desktop-database
+      changed_when: false
+
+    - name: Clean up temporary files
+      file:
+        path: "{{ servo_tmp_dir }}"
+        state: absent
+
+    - name: Verify installation
+      command: servo --version
+      register: servo_version
+      changed_when: false
+
+    - name: Display Servo version
+      debug:
+        msg: "{{ servo_version.stdout }}"
