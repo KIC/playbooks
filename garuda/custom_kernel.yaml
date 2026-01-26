@@ -143,28 +143,7 @@
             - pahole
             - llvm
             - clang
-            - rust
-            - rustup
           state: present
-        # This task needs root privileges, inherits become: yes from the play.
-
-      # Install and configure rustup for Garuda Linux (system rust + servo-git)
-      - name: Link system rust toolchain to rustup
-        command: rustup toolchain link system /usr
-        args:
-          creates: "/home/{{ ansible_facts.env.SUDO_USER | default(ansible_user) }}/.rustup/toolchains/system"
-        environment:
-          PATH: "/home/{{ ansible_facts.env.SUDO_USER | default(ansible_user) }}/.cargo/bin"
-
-      - name: Verify Rust toolchain works for kernel build
-        shell: |
-          rustc --version && cargo --version
-        register: rust_verify
-        changed_when: false
-        failed_when: rust_verify.rc != 0
-        environment:
-          PATH: "/home/{{ ansible_facts.env.SUDO_USER | default(ansible_user) }}/.cargo/bin"
-        become: no
 
       - name: Check if AUR helper ({{ aur_helper }}) is installed
         ansible.builtin.stat:
@@ -360,11 +339,6 @@
         ansible.builtin.file:
           path: "{{ build_dir }}"
           state: absent
-        become: yes # Ensure root can clean up if it was created by root.
-
-      - name: Update GRUB configuration to include the new kernel
-        ansible.builtin.command: update-grub
-        changed_when: true
         become: yes
 
       - name: Inform user about the successful installation and next steps
@@ -399,7 +373,7 @@
         ansible.builtin.lineinfile:
           path: /etc/default/grub
           regexp: '^GRUB_DEFAULT='
-          line: 'GRUB_DEFAULT="Advanced options for {{ kernel_pkg_name }}>0"'
+          line: 'GRUB_DEFAULT="Advanced options for Garuda Linux>Garuda Linux, with Linux {{ kernel_pkg_name }}"'
           backup: yes
         become: yes
         notify: regenerate grub
@@ -407,3 +381,9 @@
       - name: Regenerate GRUB configuration after default change
         ansible.builtin.command: update-grub
         become: yes
+
+  handlers:
+    - name: regenerate grub
+      ansible.builtin.command: update-grub
+      become: yes
+      listen: regenerate grub
