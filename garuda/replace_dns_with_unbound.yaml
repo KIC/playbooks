@@ -117,8 +117,4 @@
         state: restarted
 
     - name: handler systemd-reload-unbound
-      systemd:
-        daemon_reload: yes
-      service:
-        name: unbound
-        state: restarted
+      command: systemctl daemon-reload && systemctl restart unbound
