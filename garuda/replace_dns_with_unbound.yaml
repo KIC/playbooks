@@ -30,6 +30,9 @@
             prefetch: yes
             num-threads: 2
             so-rcvbuf: 4m
+            so-reuseport: yes
+            use-caps-for-id: yes
+            harden-dnssec-stripped: yes
           forward-zone:
             name: "."
             forward-addr: 1.1.1.1

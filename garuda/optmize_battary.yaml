@@ -1,0 +1,52 @@
+---
+- name: Optimize Battery
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install battery optimization packages
+      package:
+        name:
+          - tlp
+          - tlp-rdw
+          - powertop
+          - auto-cpufreq
+        state: present
+
+    - name: Enable and start TLP service
+      service:
+        name: tlp
+        enabled: yes
+        state: started
+
+    - name: Enable and start auto-cpufreq service
+      service:
+        name: auto-cpufreq
+        enabled: yes
+        state: started
+
+    - name: Run powertop auto-tune
+      command: powertop --auto-tune
+      ignore_errors: yes  # In case it's not applicable or needs calibration time
+
+    - name: Install benchmarking tools (turbostat via linux-tools)
+      package:
+        name: linux-tools
+        state: present
+
+    - name: Stop and disable listed services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      loop:
+        - speech-dispatcherd
+        - whoopsie
+        - apport-autoreport
+        - phpsessionclean.timer
+        - ua-timer.timer
+        - motd-news.timer
+        - man-db.timer
+        - openvpn
+        - postfix.service
+        - ua-reboot-cmds.service
+        - binfmt-support.service

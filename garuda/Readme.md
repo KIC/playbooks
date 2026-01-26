@@ -14,7 +14,7 @@ Edit /etc/default/grub and append your kernel options between the quotes in the 
 > GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
 
 ##### Intel
-Kernel Params: `intel_pstate=active amd_iommu=off i915.enable_rc6=1 i915.enable_psr=1 i915.enable_fbc=1`
+Kernel Params: `mitigatons=off intel_pstate=active amd_iommu=off i915.enable_rc6=1 i915.enable_psr=1 i915.enable_fbc=1`
 
 create a service to disable turbo on battary:
 ```
@@ -43,18 +43,6 @@ You can use something like: `lsmem -b --summary=only | sed -ne '/online/s/.* //p
 
 And then automatically re-generate the grub.cfg file with:
 > # grub-mkconfig -o /boot/grub/grub.cfg
-
-
-#### Battary Optimizing Tools
-
-Install TLP + tlp-rdw: Automates intel_pstate profiles (e.g., max_perf=40 on battery), sound/power off, USB autosuspend. Matches your ACPI_CPPC_CPUFREQ.
-
-Powertop --auto-tune: Runtime fixes like VM writeback throttling, FBC/RC6 for iGPU.
-
-auto-cpufreq daemon: Dynamic scaling beyond schedutil, disabling turbo on battery.
-
-Benchmark with turbostat, powertop. Gains: 10-20% battery on idle/light loads typical for Intel laptops. Reboot-test suspend (S0ix via intel_idle).
-
 
 
 ### Unbund Hardening
