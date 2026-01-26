@@ -71,7 +71,40 @@
           name: disable-turbo-battery
           enabled: yes
           state: started
+      
+      - name: Install privoxy
+        ansible.builtin.package:
+          name:
+            - util-linux
+          state: present
+          
+      - name: Post privoxy - Ensure no_proxy includes localhost is set permanently system-wide
+        become: yes
+        copy:
+          dest: /etc/profile.d/no_proxy.sh
+          content: |
+            # Set no_proxy environment variable to bypass proxy for localhost
+            export no_proxy=localhost,127.0.0.1
+            export NO_PROXY=localhost,127.0.0.1
+          owner: root
+          group: root
+          mode: '0644'
+          
+      - name: Increase filesystem watcher limit (Garuda compatible)
+        become: yes
+        lineinfile:
+          path: /etc/sysctl.d/99-inotify.conf  # Higher precedence directory
+          line: 'fs.inotify.max_user_watches=524288'
+          create: yes
+          owner: root
+          group: root
+          mode: '0644'
+        notify: apply sysctl
 
   handlers:
     - name: update-grub
       ansible.builtin.command: update-grub
+   
+    - name: Apply sysctl changes
+      command: sysctl --system
+
