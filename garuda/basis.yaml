@@ -4,7 +4,7 @@
   become: yes
   vars:
     # also had "quiet" and "resume=UUID=5067b521-24b9-4173-92b1-5fef7bb6b8ff" 
-    grub_params: "loglevel=3 intel_pstate=active amd_iommu=off i915.enable_rc6=1 i915.enable_psr=1 i915.enable_fbc=1"
+    grub_params: "mitigations=off loglevel=3 intel_pstate=active amd_iommu=off i915.enable_rc6=1 i915.enable_psr=1 i915.enable_fbc=1"
   tasks:
       - name: Ensure base build tools and system dependencies are installed
         ansible.builtin.package:
