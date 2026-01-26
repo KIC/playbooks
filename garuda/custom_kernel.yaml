@@ -6,8 +6,8 @@
     # Define the AUR package name for the Cachyos kernel. This should be verified on the AUR.
     # 'linux-cachyos' is a common name, but it might vary.
     kernel_aur_package_name: "linux-cachyos"
-    # The AUR helper to be used. 'yay' is a popular choice.
-    aur_helper: "yay"
+    # The AUR helper to be used. 'yay' is a popular choice or paru
+    aur_helper: "paru"
     # Base directory for build and cache
     build_root_dir: "/var/tmp"
     # Directory for building the package
@@ -127,6 +127,7 @@
       - name: Ensure base build tools and system dependencies are installed
         ansible.builtin.package:
           name:
+            - "{{ aur_helper }}"
             - base-devel
             - git
             - wget
@@ -151,9 +152,9 @@
       - name: Link system rust toolchain to rustup
         command: rustup toolchain link system /usr
         args:
-          creates: "/home/{{ ansible_env.SUDO_USER | default(ansible_user) }}/.rustup/toolchains/system"
+          creates: "/home/{{ ansible_facts.env.SUDO_USER | default(ansible_user) }}/.rustup/toolchains/system"
         environment:
-          PATH: "{{ ansible_env.PATH }}:/home/{{ ansible_user }}/.cargo/bin"
+          PATH: "/home/{{ ansible_facts.env.SUDO_USER | default(ansible_user) }}/.cargo/bin"
 
       - name: Verify Rust toolchain works for kernel build
         shell: |
@@ -162,7 +163,7 @@
         changed_when: false
         failed_when: rust_verify.rc != 0
         environment:
-          PATH: "{{ ansible_env.PATH }}:{{ ansible_user_dir }}/.cargo/bin"
+          PATH: "/home/{{ ansible_facts.env.SUDO_USER | default(ansible_user) }}/.cargo/bin"
         become: no
 
       - name: Check if AUR helper ({{ aur_helper }}) is installed
@@ -180,8 +181,8 @@
           path: "{{ build_dir }}"
           state: directory
           mode: '0755'
-          owner: "{{ ansible_env.SUDO_USER | default(ansible_env.USER) }}"
-          group: "{{ ansible_env.SUDO_USER | default(ansible_env.USER) }}"
+          owner: "{{ ansible_facts.env.SUDO_USER | default(ansible_facts.env.USER) }}"
+          group: "{{ ansible_facts.env.SUDO_USER | default(ansible_facts.env.USER) }}"
         become: yes
 
       - name: Fetch the {{ kernel_aur_package_name }} AUR package sources
@@ -206,8 +207,8 @@
           path: "{{ build_cache_dir }}"
           state: directory
           mode: '0755'
-          owner: "{{ ansible_env.SUDO_USER | default(ansible_env.USER) }}"
-          group: "{{ ansible_env.SUDO_USER | default(ansible_env.USER) }}"
+          owner: "{{ ansible_facts.env.SUDO_USER | default(ansible_facts.env.USER) }}"
+          group: "{{ ansible_facts.env.SUDO_USER | default(ansible_facts.env.USER) }}"
         become: yes
 
       - name: Look for cached packages to reuse
@@ -376,14 +377,20 @@
             Future updates for this kernel should be managed via 'garuda-update'.
         become: no # Informing the user doesn't need root
 
-      # Optiopnal make nee kernel default
+      # Optiopnal make new kernel default
       - name: Get GRUB menu entry name for custom kernel
-        ansible.builtin.shell: |
-          awk -v pkg="{{ kernel_pkg_name }}" -v ver="{{ kernel_version_tag }}" '
-          /menuentry / && ($0 ~ pkg || $0 ~ ver) {
-            match($0, /'[^']+'/, arr); 
+        ansible.builtin.shell: >
+          awk -v pkg="{{ kernel_pkg_name }}" -v ver="{{ kernel_version_tag }}" 
+          "/menuentry / && (\$0 ~ pkg || \$0 ~ ver) {
+            match(\$0, /'[^']+'/, arr); 
             print arr[0]; exit
-          }' /boot/grub/grub.cfg || echo "Advanced options for {{ kernel_pkg_name }}"
+          }" /boot/grub/grub.cfg || echo "Advanced options for {{ kernel_pkg_name }}"
+        register: grub_entry_name
+        changed_when: false
+        become: yes
+
+      - name: Get GRUB menu entry name for custom kernel
+        ansible.builtin.shell: "awk -v pkg={{ kernel_pkg_name }} -v ver={{ kernel_version_tag }} '/menuentry / && ($0 ~ pkg || $0 ~ ver) {for(i=1;i<=NF;i++) if($i~/^''/) {print $i; exit}}' /boot/grub/grub.cfg || echo 'Advanced options for {{ kernel_pkg_name }}'"
         register: grub_entry_name
         changed_when: false
         become: yes
