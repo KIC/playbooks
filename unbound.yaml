@@ -27,7 +27,7 @@
             hide-identity: yes
             hide-version: yes
             #harden-shortbuf: yes
-            #qname-min-length: 2
+            qname-minimisation: yes
             edns-buffer-size: 4096
             minimal-responses: yes
             prefetch: yes
@@ -80,15 +80,22 @@
       ignore_errors: yes
       changed_when: false
 
-    - name: Start default libvirt network
-      command: virsh net-start default
+    - name: Disable autostart for default libvirt network
+      command: virsh net-autostart --disable default
       ignore_errors: yes
       changed_when: false
 
-    - name: Enable autostart for default libvirt network
-      command: virsh net-autostart default
-      ignore_errors: yes
-      changed_when: false
+    - name: Configure Docker daemon.json
+      copy:
+        content: |
+          {
+            "dns": ["8.8.8.8", "127.0.0.1"]
+          }
+        dest: /etc/docker/daemon.json
+        mode: '0644'
+      notify: restart docker
+
+    # TODO make sure in /etc/NetworkManager/NetworkManager.conf under [main] is >dns=none<
 
     - name: Deploy NetworkManager dispatcher script to enforce Unbound DNS
       copy:
