@@ -8,6 +8,9 @@
         name: unbound
         state: present
 
+    - name: Gather service facts
+      service_facts:
+
     - name: Configure Unbound
       copy:
         dest: /etc/unbound/unbound.conf
@@ -29,7 +32,6 @@
             so-rcvbuf: 4m
           forward-zone:
             name: "."
-            forward-tls-upstream: yes
             forward-addr: 1.1.1.1
             forward-addr: 2606:4700:4700::1111
             forward-addr: 8.8.8.8
@@ -108,7 +110,7 @@
                 fi
               fi
             mode: '0755'
-      when: ansible_facts.service_mgr == "systemd" and "'NetworkManager.service' in ansible_facts.services"
+      when: ansible_facts.service_mgr == "systemd" and "NetworkManager.service" in ansible_facts.services
 
   handlers:
     - name: Restart Unbound
