@@ -4,7 +4,7 @@
 1. Then add localhost as default host
 `sudo mkdir -p /etc/ansible && echo "localhost ansible_connection=local" | sudo tee -a /etc/ansible/hosts`
 1. run playbooks like `ansible-playbook basis.yaml -K`
-
+1. list added timers: `sudo systemctl list-timers`
 
 
 ### Kernel Tunning
