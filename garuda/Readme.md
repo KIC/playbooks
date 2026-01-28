@@ -7,6 +7,11 @@
 1. list added timers: `sudo systemctl list-timers`
 
 
+### Security
+After installing the security tools dont forget to regularly fix vulnerabilities `sudo lynis audit system`.
+Also look into `/var/log/lynis.log`
+
+
 ### Kernel Tunning
 
 #### Boot Params

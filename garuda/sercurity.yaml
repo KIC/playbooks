@@ -1,0 +1,63 @@
+---
+- name: Install Custom Cachyos Kernel for Garuda Linux
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Install security software
+      ansible.builtin.package:
+        name:
+          - clamav
+          - lynis
+        state: present
+
+    - name: Update ClamAV virus definitions
+      command: freshclam
+      changed_when: false
+
+    - name: Enable and start ClamAV daemon service
+      systemd:
+        name: clamav-daemon
+        enabled: true
+        state: started
+
+    - name: Check ClamAV daemon status
+      systemd:
+        name: clamav-daemon
+      register: clamav_status
+
+    - name: Enable ClamAV freshclam-once timer (daily updates)
+      systemd:
+        name: clamav-freshclam-once.timer
+        enabled: true
+        state: started        
+
+    - name: enable clmoncc
+      systemd:
+        name: clamav-clamonacc
+        state: started
+        enabled: yes
+
+    - name: On access scanning
+      lineinfile:
+        path: /etc/clamav/clamd.conf
+        regexp: '^{{ item.regex }}$'
+        line: "{{ item.line }}"
+        state: present
+      loop:
+        - { regex: '^OnAccessPrevention', line: 'OnAccessPrevention yes'}
+        - { regex: '^OnAccessIncludePath', line: 'OnAccessIncludePath /home/*/Downloads'}
+        - { regex: '^OnAccessExcludeUname', line: 'OnAccessExcludeUname clamav'}
+      notify:
+        - restart clamd
+        - restart clmoncc
+
+  handlers:
+    - name: restart clamd
+      systemd:
+        name: clamav-daemon
+        state: restarted
+    - name: restart clmoncc
+      systemd:
+        name: clamav-clamonacc
+        state: restarted
+
