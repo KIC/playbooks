@@ -102,6 +102,12 @@
         mode: '0644'
       notify: apply sysctl
 
+    - name: Remove unused software
+      ansible.builtin.package:
+        name: 
+          - bridge-utils
+        state: absent
+
     - name: Install standard software
       ansible.builtin.package:
         name:

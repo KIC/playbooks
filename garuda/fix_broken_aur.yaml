@@ -1,0 +1,28 @@
+---
+- name: Fix CachyOS kernel build environment
+  hosts: localhost
+  become: yes
+  vars:
+    kernel_version: "{{ ansible_facts.kernel }}"
+  tasks:
+    - name: Rebuild kernel preparation files
+      ansible.builtin.shell: |
+        cd /lib/modules/{{ kernel_version }}/build
+        make mrproper
+        make prepare  
+        make scripts_prepare
+        make headers_install
+        depmod -a {{ kernel_version }}
+      args:
+        executable: /bin/bash
+
+    - name: Clear all build caches
+      ansible.builtin.shell: |
+        pacman -Sc --noconfirm
+        rm -rf ~/.cache/yay ~/.cache/paru ~/.cache/pikaur
+      args:
+        executable: /bin/bash
+
+    - name: Run full Garuda update
+      debug:
+        msg: echo run sudo garuda-update -a again!
