@@ -106,6 +106,10 @@
       ansible.builtin.package:
         name: 
           - bridge-utils
+          - aribb24
+          - depot-tools-git
+          - find-the-command-git
+          - gperf
         state: absent
 
     - name: Install standard software
