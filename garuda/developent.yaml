@@ -1,0 +1,55 @@
+
+---
+- name: Install Development Tools
+  hosts: localhost
+  become: yes
+  vars:
+    user_id: "{{ ansible_facts.env.SUDO_USER }}"
+  tasks:
+    - name: Install developer software
+      ansible.builtin.package:
+        name:
+          - git
+          - git-lfs  # git large files
+          - github-cli  # github cli tool
+          - sqlite3
+          - visual-studio-code-bin
+          - docker
+          - docker-compose
+          - uv  # Python manager
+          - nvm  # nodejs manager
+          # TODO cursor gemini und co. 
+        state: present
+
+    - name: cnfig git settings and install gitgib cli extensions
+      ansible.builtin.shell: |
+        git config --global credential.helper store
+        # gh extension install actions/gh-actions-cache  # FIXME 
+
+    - name: Enable and start Docker service
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Install LazyDocker via official script
+      ansible.builtin.shell: |
+        curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+    
+    - name: Move to general awailable place
+      ansible.builtin.shell: |
+        mv /home/{{ user_id }}/.local/bin/lazydocker /usr/local/bin/
+      become: yes
+    
+    - name: Make LazyDocker executable
+      file:
+        path: /usr/local/bin/lazydocker
+        mode: '0755'
+      become: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ user_id }}"
+        groups: docker
+        append: yes
+      become: yes  

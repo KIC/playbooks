@@ -1,8 +1,9 @@
 ---
-- name: Install Custom Cachyos Kernel for Garuda Linux
+- name: Install Basis System
   hosts: localhost
   become: yes
   vars:
+    user_id: "{{ ansible_facts.env.SUDO_USER }}"
     # also had "quiet" and "resume=UUID=5067b521-24b9-4173-92b1-5fef7bb6b8ff" 
     grub_params: "mitigations=off loglevel=3 intel_pstate=active amd_iommu=off i915.enable_rc6=1 i915.enable_psr=1 i915.enable_fbc=1"
   tasks:
@@ -122,7 +123,7 @@
           - progress  # show IO and estimate time
           - btop  # nice top alternative
           - meld  # file comparison
-          - duplicity  # BAckup tool
+          - duplicity  # Backup tool
           - deja-dup  # GUI Frontend for duplicity
           - cups-pdf  # print to PDF
           - fzf  # fuzzy file finder
@@ -143,6 +144,7 @@
           - nvtop  # top for nvidia
           - lrzip  # lrge file compression
           - zip  # zip compressor
+          - atool  # archive tools
           - ecryptfs-utils  # mount singe encrypted folder
           - hardinfo  # show hardware like in windows
           - mpv  # video player
@@ -151,7 +153,7 @@
 
     - name: Make user user is part of group users
       ansible.builtin.user:
-        name: "{{ ansible_facts.user_id }}"
+        name: "{{ user_id }}"
         groups: users
         append: true
 

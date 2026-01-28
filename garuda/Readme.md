@@ -14,30 +14,17 @@ Also look into `/var/log/lynis.log`
 
 ### Kernel Tunning
 
+#### Custom Kernel Build
+check local version `uname -r`
+check remote version:
+`curl -s "https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=linux-cachyos" | grep '^_minor'`
+
 #### Boot Params
 Edit /etc/default/grub and append your kernel options between the quotes in the GRUB_CMDLINE_LINUX_DEFAULT line:
 > GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
 
 ##### Intel
 Kernel Params: `mitigatons=off intel_pstate=active amd_iommu=off i915.enable_rc6=1 i915.enable_psr=1 i915.enable_fbc=1`
-
-create a service to disable turbo on battary:
-```
-sudo tee /etc/systemd/system/disable-turbo-battery.service << EOF
-[Unit]
-Description=Disable Intel Turbo on Battery
-After=multi-user.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/bin/bash -c 'if ! on_ac_power; then echo 1 > /sys/module/intel_pstate/parameters/no_turbo; fi'
-ExecStop=/bin/bash -c 'if on_ac_power; then echo 0 > /sys/module/intel_pstate/parameters/no_turbo; fi'
-
-[Install]
-WantedBy=multi-user.target
-EOF
-```
 
 ##### AMD GPU
 Kenel Params:

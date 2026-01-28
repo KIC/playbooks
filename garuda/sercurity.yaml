@@ -1,5 +1,5 @@
 ---
-- name: Install Custom Cachyos Kernel for Garuda Linux
+- name: Installand Configure  Security Software
   hosts: localhost
   become: yes
   tasks:
