@@ -3,6 +3,7 @@
 1. First install needed packages: `sudo pacman -S vim ansible uv visual-studio-code-bin`
 1. Then add localhost as default host
 `sudo mkdir -p /etc/ansible && echo "localhost ansible_connection=local" | sudo tee -a /etc/ansible/hosts`
+1. install ansible requiremnts: `ansible-galaxy collection install -r requirements.yaml`
 1. run playbooks like `ansible-playbook basis.yaml -K`
 1. list added timers: `sudo systemctl list-timers`
 

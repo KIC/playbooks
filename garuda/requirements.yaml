@@ -1,0 +1,3 @@
+# use with `ansible-galaxy collection install -r requirements.yaml`
+collections:
+  - name: kewlfft.aur

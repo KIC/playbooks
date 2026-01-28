@@ -153,6 +153,17 @@
 
     - name: Make user user is part of group users
       ansible.builtin.user:
+        name: aur_builder
+        create_home: yes
+        groups: 
+          - wheel
+          - users
+        shell: /bin/bash
+        state: present
+      become: yes
+
+    - name: Make user user is part of group users
+      ansible.builtin.user:
         name: "{{ user_id }}"
         groups: users
         append: true
