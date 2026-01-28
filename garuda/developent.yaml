@@ -18,7 +18,8 @@
           - docker-compose
           - uv  # Python manager
           - nvm  # nodejs manager
-          # TODO cursor gemini und co. 
+          - nodejs
+          # TODO pycharm cursor gemini und co. 
         state: present
 
     - name: cnfig git settings and install gitgib cli extensions
@@ -52,4 +53,6 @@
         name: "{{ user_id }}"
         groups: docker
         append: yes
-      become: yes  
+      become: yes 
+
+   # TODO install adb android tools 

@@ -3,6 +3,39 @@
 - name: Optimize Battery (Garuda Native)
   hosts: all
   become: yes
+  vars:
+    user_id: "{{ ansible_facts.env.SUDO_USER }}"
+    autotune: |
+      [Unit]
+      Description=PowerTOP auto tune
+      After=multi-user.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/sbin/powertop --auto-tune
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+    job: |
+      [Unit]
+      Description=Powertop HTML report
+      After=network.target
+      
+      [Service]
+      Type=oneshot
+      User=root
+      ExecStart=/usr/bin/powertop --html=/home/{{ user_id }}/status/powertop.html
+    timer: |
+      [Unit]
+      Description=Powertop report every 30 minutes
+      
+      [Timer]
+      OnCalendar=*:0/30
+      Persistent=true
+      
+      [Install]
+      WantedBy=timers.target
   tasks:
     - name: Install Garuda-native battery tools
       package:
@@ -27,7 +60,6 @@
         enabled: yes
         state: started
 
-
     - name: Stop and disable listed services
       ansible.builtin.systemd:
         name: "{{ item }}"
@@ -39,29 +71,13 @@
 
     - name: Create status directory for powertop reports
       ansible.builtin.file:
-        path: "/home/{{ ansible_facts.user_id  }}/status"
+        path: "/home/{{ user_id  }}/status"
         state: directory
-        owner: "{{ ansible_facts.user_id }}"
-        group: "{{ ansible_facts.user_id }}"
+        owner: "{{ user_id }}"
+        group: "{{ user_id }}"
         mode: '0755'
 
-    - name: Create powertop service
-      ansible.builtin.copy:
-        content: |
-          [Unit]
-          Description=Powertop HTML report
-          After=network.target
-          
-          [Service]
-          Type=oneshot
-          User=root
-          ExecStart=/usr/bin/powertop --html=/home/{{ ansible_facts.user_id }}/status/powertop.html
-        dest: /etc/systemd/system/powertop-report.service
-        mode: '0644'
-      become: true
-      notify: reload systemd
-
-    - name: Deploy powertop timer + enable
+    - name: Deploy powertop autotune and reporting
       block:
         - name: Create service and timer files
           ansible.builtin.copy:
@@ -69,8 +85,9 @@
             dest: "{{ item.dest }}"
             mode: '0644'
           loop:
-            - { content: "[Unit]\nDescription=Powertop HTML report\nAfter=network.target\n\n[Service]\nType=oneshot\nUser=root\nExecStart=/usr/bin/powertop --html=/home/{{ ansible_facts.user_id }}/status/powertop.html", dest: "/etc/systemd/system/powertop-report.service" }
-            - { content: "[Unit]\nDescription=Powertop report every 30 minutes\n\n[Timer]\nOnCalendar=*:0/30\nPersistent=true\n\n[Install]\nWantedBy=timers.target", dest: "/etc/systemd/system/powertop-report.timer" }
+            - { content: "{{ autotune }}", dest: "/etc/systemd/system/powertop-autotune.service" }
+            - { content: "{{ job }}", dest: "/etc/systemd/system/powertop-report.service" }
+            - { content: "{{ timer }}", dest: "/etc/systemd/system/powertop-report.timer" }
           become: true
         
         - name: Reload systemd and enable timer
