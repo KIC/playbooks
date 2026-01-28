@@ -6,164 +6,170 @@
     # also had "quiet" and "resume=UUID=5067b521-24b9-4173-92b1-5fef7bb6b8ff" 
     grub_params: "mitigations=off loglevel=3 intel_pstate=active amd_iommu=off i915.enable_rc6=1 i915.enable_psr=1 i915.enable_fbc=1"
   tasks:
-      - name: Ensure needed tools are installed
-        ansible.builtin.package:
-          name:
-            - util-linux
-            - uv
-          state: present
+    - name: Ensure needed tools are installed
+      ansible.builtin.package:
+        name:
+          - util-linux
+          - uv
+        state: present
 
-      - name: Get total RAM in bytes
-        ansible.builtin.shell: lsmem -b --summary=only | sed -ne '/online/s/.* //p'
-        register: ram_output
+    - name: Get total RAM in bytes
+      ansible.builtin.shell: lsmem -b --summary=only | sed -ne '/online/s/.* //p'
+      register: ram_output
 
-      - name: Set GRUB parameters including AMD GPU GTT size
-        ansible.builtin.set_fact:
-          grub_params: "{{ grub_params }} amdgpu.gttsize={{ ram_output.stdout }} ttm.pages_limit={{ ram_output.stdout }}"
+    - name: Set GRUB parameters including AMD GPU GTT size
+      ansible.builtin.set_fact:
+        grub_params: "{{ grub_params }} amdgpu.gttsize={{ ram_output.stdout }} ttm.pages_limit={{ ram_output.stdout }}"
 
-      - name: Get current GRUB_CMDLINE_LINUX_DEFAULT
-        ansible.builtin.command: grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub
-        register: current_grub
-        changed_when: false
+    - name: Get current GRUB_CMDLINE_LINUX_DEFAULT
+      ansible.builtin.command: grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub
+      register: current_grub
+      changed_when: false
 
-      - name: Extract current parameters
-        ansible.builtin.set_fact:
-          current_params: "{{ current_grub.stdout | regex_replace('^GRUB_CMDLINE_LINUX_DEFAULT=\"(.*)\"$', '\\1') }}"
+    - name: Extract current parameters
+      ansible.builtin.set_fact:
+        current_params: "{{ current_grub.stdout | regex_replace('^GRUB_CMDLINE_LINUX_DEFAULT=\"(.*)\"$', '\\1') }}"
 
-      - name: Extract resume parameter
-        ansible.builtin.set_fact:
-          resume_param: "{{ current_params | regex_findall('resume=UUID=[^ ]+') | first | default('') }}"
+    - name: Extract resume parameter
+      ansible.builtin.set_fact:
+        resume_param: "{{ current_params | regex_findall('resume=UUID=[^ ]+') | first | default('') }}"
 
-      - name: Append resume parameter to GRUB params
-        ansible.builtin.set_fact:
-          grub_params: "{{ resume_param }} {{ grub_params }}"
-        when: resume_param != ''
+    - name: Append resume parameter to GRUB params
+      ansible.builtin.set_fact:
+        grub_params: "{{ resume_param }} {{ grub_params }}"
+      when: resume_param != ''
 
-      - name: Set GRUB default kernel parameters
-        ansible.builtin.lineinfile:
-          path: /etc/default/grub
-          regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
-          line: 'GRUB_CMDLINE_LINUX_DEFAULT="{{ grub_params }}"'
-        notify: update-grub
+    - name: Set GRUB default kernel parameters
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="{{ grub_params }}"'
+      notify: update-grub
 
-      - name: Create disable-turbo-battery service
-        ansible.builtin.copy:
-          dest: /etc/systemd/system/disable-turbo-battery.service
-          content: |
-            [Unit]
-            Description=Disable Intel Turbo on Battery
-            After=multi-user.target
+    - name: Create disable-turbo-battery service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/disable-turbo-battery.service
+        content: |
+          [Unit]
+          Description=Disable Intel Turbo on Battery
+          After=multi-user.target
 
-            [Service]
-            Type=oneshot
-            RemainAfterExit=yes
-            ExecStart=/bin/bash -c 'if [ -f /sys/module/intel_pstate/parameters/no_turbo ] && ! on_ac_power; then echo 1 > /sys/module/intel_pstate/parameters/no_turbo; fi'
-            ExecStop=/bin/bash -c 'if [ -f /sys/module/intel_pstate/parameters/no_turbo ] && on_ac_power; then echo 0 > /sys/module/intel_pstate/parameters/no_turbo; fi'
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          ExecStart=/bin/bash -c 'if [ -f /sys/module/intel_pstate/parameters/no_turbo ] && ! on_ac_power; then echo 1 > /sys/module/intel_pstate/parameters/no_turbo; fi'
+          ExecStop=/bin/bash -c 'if [ -f /sys/module/intel_pstate/parameters/no_turbo ] && on_ac_power; then echo 0 > /sys/module/intel_pstate/parameters/no_turbo; fi'
 
-            [Install]
-            WantedBy=multi-user.target
+          [Install]
+          WantedBy=multi-user.target
 
-      - name: Reload systemd daemon
-        ansible.builtin.systemd:
-          daemon_reload: yes
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
 
-      - name: Enable and start disable-turbo-battery service
-        ansible.builtin.systemd:
-          name: disable-turbo-battery
-          enabled: yes
-          state: started
-      
-      - name: Install privoxy
-        ansible.builtin.package:
-          name:
-            - util-linux
-          state: present
-          
-      - name: Post privoxy - Ensure no_proxy includes localhost is set permanently system-wide
-        become: yes
-        copy:
-          dest: /etc/profile.d/no_proxy.sh
-          content: |
-            # Set no_proxy environment variable to bypass proxy for localhost
-            export no_proxy=localhost,127.0.0.1
-            export NO_PROXY=localhost,127.0.0.1
-          owner: root
-          group: root
-          mode: '0644'
-          
-      - name: Increase filesystem watcher limit (Garuda compatible)
-        become: yes
-        lineinfile:
-          path: /etc/sysctl.d/99-inotify.conf  # Higher precedence directory
-          line: 'fs.inotify.max_user_watches=524288'
-          create: yes
-          owner: root
-          group: root
-          mode: '0644'
-        notify: apply sysctl
+    - name: Enable and start disable-turbo-battery service
+      ansible.builtin.systemd:
+        name: disable-turbo-battery
+        enabled: yes
+        state: started
+    
+    - name: Install privoxy
+      ansible.builtin.package:
+        name:
+          - util-linux
+        state: present
+        
+    - name: Post privoxy - Ensure no_proxy includes localhost is set permanently system-wide
+      become: yes
+      copy:
+        dest: /etc/profile.d/no_proxy.sh
+        content: |
+          # Set no_proxy environment variable to bypass proxy for localhost
+          export no_proxy=localhost,127.0.0.1
+          export NO_PROXY=localhost,127.0.0.1
+        owner: root
+        group: root
+        mode: '0644'
+        
+    - name: Increase filesystem watcher limit (Garuda compatible)
+      become: yes
+      lineinfile:
+        path: /etc/sysctl.d/99-inotify.conf  # Higher precedence directory
+        line: 'fs.inotify.max_user_watches=524288'
+        create: yes
+        owner: root
+        group: root
+        mode: '0644'
+      notify: apply sysctl
 
-      - name: Install standard software
-        ansible.builtin.package:
-          name:
-            - convmv  # convert between file encodings 
-            - firejail  # run any executable in a sandbox environment
-            - rdfind  # find duplicate files
-            - powertop  # show power consuption per process
-            - progress  # show IO and estimate time
-            - btop  # nice top alternative
-            - meld  # file comparison
-            - duplicity  # BAckup tool
-            - deja-dup  # GUI Frontend for duplicity
-            - cups-pdf  # print to PDF
-            - fzf  # fuzzy file finder
-            - fuse-zip  # mount zip files
-            - bonnie++  # Hard dirve benchmark tool
-            - sshfs  # mount folders over ssh
-            - transmission-qt  # torrent client
-            - ttf-ms-fonts  # microsoft fonts
-            - gparted  # disk partitioning
-            - gzip  # zipper
-            - unarchiver  # extract rar archives
-            - torbrowser-launcher  # TOR browser
-            - popsicle  # USB Boot maker
-            - imagemagick  # Imag CLI tools
-            - nmap  # network tool
-            - htop  # better top
-            - iftop  # top for networking
-            - nvtop  # top for nvidia
-            - lrzip  # lrge file compression
-            - zip  # zip compressor
-            - ecryptfs-utils  # mount singe encrypted folder
-            - hardinfo  # show hardware like in windows
-            - mpv  # video player
-            - ffmpeg  # video codecs and cli tools
-          state: present
+    - name: Install standard software
+      ansible.builtin.package:
+        name:
+          - convmv  # convert between file encodings 
+          - firejail  # run any executable in a sandbox environment
+          - rdfind  # find duplicate files
+          - powertop  # show power consuption per process
+          - progress  # show IO and estimate time
+          - btop  # nice top alternative
+          - meld  # file comparison
+          - duplicity  # BAckup tool
+          - deja-dup  # GUI Frontend for duplicity
+          - cups-pdf  # print to PDF
+          - fzf  # fuzzy file finder
+          - fuse-zip  # mount zip files
+          - bonnie++  # Hard dirve benchmark tool
+          - sshfs  # mount folders over ssh
+          - transmission-qt  # torrent client
+          - ttf-ms-fonts  # microsoft fonts
+          - gparted  # disk partitioning
+          - gzip  # zipper
+          - unarchiver  # extract rar archives
+          - torbrowser-launcher  # TOR browser
+          - popsicle  # USB Boot maker
+          - imagemagick  # Imag CLI tools
+          - nmap  # network tool
+          - htop  # better top
+          - iftop  # top for networking
+          - nvtop  # top for nvidia
+          - lrzip  # lrge file compression
+          - zip  # zip compressor
+          - ecryptfs-utils  # mount singe encrypted folder
+          - hardinfo  # show hardware like in windows
+          - mpv  # video player
+          - ffmpeg  # video codecs and cli tools
+        state: present
 
-      - name: creae user data in shared location
-        ansible.builtin.file:
-          path: "{{ item }}"
-          state: directory
-          # owner: users
-          group: users
-          mode: "02770"
-          recurse: true
-        become: yes
-        loop:
-          - /opt/uv-tools
-          - /home/.shared/Downloads
-          - /home/.shared/data
-          - /home/.shared/data/sources
-          # ... defne all folders
-     
-      # TODO bind mount these to each user session using a tmplate service
+    - name: Make user user is part of group users
+      ansible.builtin.user:
+        name: "{{ ansible_facts.user_id }}"
+        groups: users
+        append: true
 
-      - name: Install UV tools
-        ansible.builtin.shell: >-
-          UV_TOOL_BIN_DIR=/usr/local/bin UV_TOOL_DIR=/opt/uv-tools uv tool install {{ item }}
-        become: yes
-        loop:
-          - yt-dlp
-          # TODO install all uv tools to the shared location
+    - name: create user data in shared location
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        # owner: users
+        group: users
+        mode: "02770"
+        recurse: true
+      become: yes
+      loop:
+        - /opt/uv-tools
+        - /home/.shared/Downloads
+        - /home/.shared/data
+        - /home/.shared/data/sources
+        # ... defne all folders
+    
+    # TODO bind mount these to each user session using a tmplate service
+
+    - name: Install UV tools
+      ansible.builtin.shell: >-
+        UV_TOOL_BIN_DIR=/usr/local/bin UV_TOOL_DIR=/opt/uv-tools uv tool install {{ item }}
+      become: yes
+      loop:
+        - yt-dlp
+        # TODO install all uv tools to the shared location
 
   handlers:
     - name: update-grub
