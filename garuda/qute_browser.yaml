@@ -1,5 +1,6 @@
-# import this one in basis.yaml
 ---
+- import_playbook: git.yaml
+
 - name: Install qutebrowser in shared virtual environment
   hosts: localhost
   become: yes
@@ -53,7 +54,8 @@
     - name: Create default config
       shell: |      
         qutebrowser :config-write-py --force :q --nowindow
-        qbpm new private
+        qbpm list
+        qbpm new private || true
       become: no
 
     - name: Create desktop entry
@@ -69,11 +71,3 @@
           Categories=Network;WebBrowser;
         dest: /usr/share/applications/qutebrowser.desktop
         mode: '0644'
-
-    - name: Set proper permissions
-      file:
-        path: "{{ qb_shared_dir }}"
-        recurse: yes
-        owner: root
-        group: users
-        mode: '0755'
