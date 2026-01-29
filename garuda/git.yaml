@@ -1,0 +1,22 @@
+
+---
+- name: Install Development Tools
+  hosts: localhost
+  become: yes
+  vars:
+    user_id: "{{ ansible_facts.env.SUDO_USER }}"
+    # The AUR helper to be used. 'yay' is a popular choice or paru
+    aur_helper: "paru"
+  tasks:
+    - name: Install software
+      ansible.builtin.package:
+        name:
+          - git
+          - git-lfs  # git large files
+          - github-cli  # github cli tool
+        state: present
+
+    - name: config git settings and install github cli extensions
+      ansible.builtin.shell: |
+        git config --global credential.helper store
+        # gh extension install actions/gh-actions-cache  # FIXME 

@@ -1,0 +1,47 @@
+
+---
+- name: Install Development Tools
+  hosts: localhost
+  become: yes
+  vars:
+    user_id: "{{ ansible_facts.env.SUDO_USER }}"
+    # The AUR helper to be used. 'yay' is a popular choice or paru
+    aur_helper: "paru"
+  tasks:
+    - name: Install software
+      ansible.builtin.package:
+        name:
+          - docker
+          - docker-compose
+        state: present
+
+    - name: Enable and start Docker service
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Install LazyDocker via official script
+      ansible.builtin.shell: |
+        curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+      async: 300
+      poll: 10
+      become: no
+
+    - name: Move to general awailable place
+      ansible.builtin.shell: |
+        mv /home/{{ user_id }}/.local/bin/lazydocker /usr/local/bin/
+      become: yes
+    
+    - name: Make LazyDocker executable
+      file:
+        path: /usr/local/bin/lazydocker
+        mode: '0755'
+      become: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ user_id }}"
+        groups: docker
+        append: yes
+      become: yes

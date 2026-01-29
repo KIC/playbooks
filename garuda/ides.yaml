@@ -1,0 +1,60 @@
+
+---
+- name: Install Development Tools
+  hosts: localhost
+  become: yes
+  vars:
+    user_id: "{{ ansible_facts.env.SUDO_USER }}"
+    # The AUR helper to be used. 'yay' is a popular choice or paru
+    aur_helper: "paru"
+  tasks:
+    - name: Install pacman software
+      ansible.builtin.package:
+        name:
+          - sqlite3
+          - visual-studio-code-bin
+          - uv  # Python manager
+          - nvm  # nodejs manager
+          - nodejs
+          - gemini-cli
+        state: present
+
+    - name: install cursor
+      become: yes
+      become_user: aur_builder
+      kewlfft.aur.aur:
+        name: cursor-bin
+        state: present
+        use: "{{ aur_helper }}"
+        extra_args:
+          - --noconfirm
+          - --skip-review
+        aur_only: yes
+
+    - name: install snapd
+      become: yes
+      become_user: aur_builder
+      kewlfft.aur.aur:
+        name: snapd
+        state: present
+        use: "{{ aur_helper }}"
+        extra_args:
+          - --noconfirm
+          - --skip-review
+        aur_only: yes
+
+    - name: enable snapd
+      systemd:
+        name: snapd.socket
+        state: started
+        enabled: yes
+
+    - name: symlink for classic snaps
+      ansible.builtin.file:
+        src: /var/lib/snapd/snap
+        dest: /snap
+        state: link
+      become: yes
+
+  # TODO install adb android tools 
+  # TODO install snaps
