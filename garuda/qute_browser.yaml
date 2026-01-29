@@ -1,0 +1,79 @@
+# import this one in basis.yaml
+---
+- name: Install qutebrowser in shared virtual environment
+  hosts: localhost
+  become: yes
+  vars:
+    qb_shared_dir: /opt/qutebrowser
+    qb_venv_dir: "{{ qb_shared_dir }}/.venv"
+  tasks:
+    - name: Create shared directory
+      file:
+        path: "{{ qb_shared_dir }}"
+        state: directory
+        mode: '02775'
+        owner: root
+        group: users
+
+    - name: Install software
+      ansible.builtin.package:
+        name:
+          - uv
+        state: present
+
+    - name: Clone qutebrowser repository
+      git:
+        repo: https://github.com/qutebrowser/qutebrowser.git
+        dest: "{{ qb_shared_dir }}"
+        update: yes
+        force: yes
+
+    - name: Create virtual environment with
+      shell: |
+        python "{{ qb_shared_dir }}"/scripts/mkvenv.py --update --venv-dir 
+      args:
+        creates: "{{ qb_venv_dir }}/bin/qutebrowser"
+          
+    - name: install profile manager
+      shell: |
+        "{{ qb_venv_dir }}"/bin/pip install qbpm
+      args:
+        creates: "{{ qb_venv_dir }}/bin/qbpm"
+
+    - name: Create symlink for system-wide access
+      file:
+        src: "{{ qb_venv_dir }}/bin/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        state: link
+        mode: '0775'
+      loop:
+       - qutebrowser
+       - qbpm
+    
+    - name: Create default config
+      shell: |      
+        qutebrowser :config-write-py --force :q --nowindow
+        qbpm new private
+      become: no
+
+    - name: Create desktop entry
+      copy:
+        content: |
+          [Desktop Entry]
+          Name=qutebrowser
+          Comment=Keyboard-driven, vim-like browser based on Python and Qt.
+          Exec={{ qb_venv_dir }}/bin/qutebrowser %U
+          # Icon=qutebrowser
+          Terminal=false
+          Type=Application
+          Categories=Network;WebBrowser;
+        dest: /usr/share/applications/qutebrowser.desktop
+        mode: '0644'
+
+    - name: Set proper permissions
+      file:
+        path: "{{ qb_shared_dir }}"
+        recurse: yes
+        owner: root
+        group: users
+        mode: '0755'
