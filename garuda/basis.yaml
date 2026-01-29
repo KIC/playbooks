@@ -116,6 +116,7 @@
     - name: Install standard software
       ansible.builtin.package:
         name:
+          - flatpak  # enble flatpak packages
           - convmv  # convert between file encodings 
           - firejail  # run any executable in a sandbox environment
           - rdfind  # find duplicate files
@@ -137,6 +138,7 @@
           - unarchiver  # extract rar archives
           - torbrowser-launcher  # TOR browser
           - popsicle  # USB Boot maker
+          - ventoy  # make USB stick bootable for multiple images
           - imagemagick  # Imag CLI tools
           - nmap  # network tool
           - htop  # better top
