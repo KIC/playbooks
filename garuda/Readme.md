@@ -9,6 +9,11 @@
 1. add secrets via extra vars: `ansible-playbook jupyther.yaml -K --extra-vars "_token_=geheim"`
 
 
+### Cuda
+The nvidia playbook installs everything for cuda and compute only, you can chek the renderer should stil be
+the iGPU `glxinfo | grep renderer`
+
+
 ### Security
 After installing the security tools dont forget to regularly fix vulnerabilities `sudo lynis audit system`.
 Also look into `/var/log/lynis.log`

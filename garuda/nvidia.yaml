@@ -69,8 +69,8 @@
           
           [Service]
           Type=oneshot
-          ExecStart=/usr/bin/nvidia-smi -pm 0
-          ExecStart=/usr/bin/nvidia-smi -pl 50
+          ExecStart=/bin/bash -c 'nvidia-smi -pm 0 || true'
+          ExecStart=/bin/bash -c 'nvidia-smi -pl 50 || true'
           RemainAfterExit=yes
           
           [Install]
@@ -90,11 +90,14 @@
         content: |
           #!/bin/bash
           if [[ -d /opt/cuda/bin ]]; then
-            export PATH=/opt/cuda/bin${PATH:+:${PATH}}
+            export PATH=/opt/ cuda/bin${PATH:+:${PATH}}
             export LD_LIBRARY_PATH=/opt/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
             export CUDA_HOME=/opt/cuda
           fi
         mode: '0775'
 
-    - name: Regenerate initramfs
-      command: mkinitcpio -P
+    - name: Run full Garuda update
+      debug:
+        msg: |
+          you should really run sudo garuda-update -a now to make sure initramfs is not broken!
+      
