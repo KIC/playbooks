@@ -3,6 +3,7 @@
   hosts: localhost
   become: yes # Default for the play, will be overridden for specific tasks
   vars:
+    custom_kernel_localversion: "-custom"
     # Define the AUR package name for the Cachyos kernel. This should be verified on the AUR.
     # 'linux-cachyos' is a common name, but it might vary.
     kernel_aur_package_name: "linux-cachyos"
@@ -174,6 +175,23 @@
         # Fetching sources into /tmp can be done as user.
         become: no
 
+      - name: Patch PKGBUILD to add custom kernel localversion
+        ansible.builtin.lineinfile:
+          path: "{{ build_dir }}/PKGBUILD"
+          regexp: '^pkgbase=.*'
+          line: 'pkgbase="{{ kernel_aur_package_name }}{{ custom_kernel_localversion | default('' ) }}"'
+        become: no
+        when: custom_kernel_localversion is defined
+
+      - name: Patch PKGBUILD to add _localversion for kernel naming
+        ansible.builtin.lineinfile:
+          path: "{{ build_dir }}/PKGBUILD"
+          regexp: '^_localversion=.*'
+          line: '_localversion="{{ custom_kernel_localversion | default('' ) }}"'
+          insertafter: '^pkgbase='
+        become: no
+        when: custom_kernel_localversion is defined
+        
       - name: Apply custom kernel config by overwriting upstream config
         ansible.builtin.copy:
           dest: "{{ build_dir }}/config"
