@@ -1,0 +1,37 @@
+---
+- name: Install Basis System
+  hosts: localhost
+  become: yes
+  vars:
+    user_id: "{{ ansible_facts.env.SUDO_USER }}"
+  tasks:
+    - name: Bind mount shared locations for user
+      ansible.builtin.mount:
+        path: "/home/{{ user_id }}/{{ item.tgt }}"
+        src: "/home/.shared/{{ item.src }}"
+        fstype: none
+        opts: bind
+        state: mounted
+      loop:
+        - { src: "documents", tgt: "Documents" }
+        - { src: "downloads", tgt: "Downloads" }
+        - { src: "audios/public/music", tgt: "Music" }
+        - { src: "images", tgt: "Pictures" }
+        - { src: "videos", tgt: "Videos" }
+        - { src: "data", tgt: "data" }
+        - { src: "images", tgt: "images" }
+        - { src: "sources", tgt: "sources" } 
+        - { src: "audios", tgt: "audios" }
+
+    - name: Add symlinks
+      ansible.builtin.file:
+        src: "/home/{{ user_id }}/{{ item.src }}"
+        dest: "/home/{{ user_id }}/{{ item.tgt }}
+        state: "link"
+      loop:
+       - { src: "audios/public", tgt: "Public/audios" }
+       - { src: "source/public", tgt: "Public/source" }
+       - { src: "documents/public", tgt: "Public/documents" }
+       - { src: "Videos/public", tgt: "Public/videos" }
+       - { src: "images/public", tgt: "Public/images" }
+       - { src: "data/public", tgt: "Public/data" }

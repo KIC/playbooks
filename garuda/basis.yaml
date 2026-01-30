@@ -182,13 +182,34 @@
       become: yes
       loop:
         - /opt/uv-tools
-        - /home/.shared/Downloads
+        - /opt/appimages
+        - /opt/manual-binaries
+        - /home/.shared/downloads
         - /home/.shared/data
-        - /home/.shared/data/sources
-        # ... defne all folders
+        - /home/.shared/data/work
+        - /home/.shared/data/mine
+        - /home/.shared/data/public
+        - /home/.shared/data/public/yfinance
+        - /home/.shared/sources
+        - /home/.shared/sources/work
+        - /home/.shared/sources/mine
+        - /home/.shared/sources/mine/notebooks
+        - /home/.shared/sources/public
+        - /home/.shared/documents
+        - /home/.shared/documents/work
+        - /home/.shared/documents/mine
+        - /home/.shared/documents/public
+        - /home/.shared/audios
+        - /home/.shared/audios/mine
+        - /home/.shared/audios/public
+        - /home/.shared/audios/public/music
+        - /home/.shared/images
+        - /home/.shared/images/mine
+        - /home/.shared/images/public
+        - /home/.shared/videos
+        - /home/.shared/videos/mine
+        - /home/.shared/videos/public
     
-    # TODO bind mount these to each user session using a tmplate service
-
     - name: Install UV tools
       ansible.builtin.shell: >-
         UV_TOOL_BIN_DIR=/usr/local/bin UV_TOOL_DIR=/opt/uv-tools uv tool install {{ item }}

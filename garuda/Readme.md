@@ -6,6 +6,7 @@
 1. install ansible requiremnts: `ansible-galaxy collection install -r requirements.yaml`
 1. run playbooks like `ansible-playbook basis.yaml -K`
 1. list added timers: `sudo systemctl list-timers`
+1. add secrets via extra vars: `ansible-playbook jupyther.yaml -K --extra-vars "_token_=geheim"`
 
 
 ### Security

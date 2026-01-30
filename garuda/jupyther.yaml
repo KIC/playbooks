@@ -1,0 +1,81 @@
+---
+- name: Install Basis System
+  hosts: localhost
+  become: yes
+  vars:
+    user_id: "{{ ansible_facts.env.SUDO_USER }}"
+    kernel_name: "Notebooks"
+    notebooks_path: /home/.shared/sources/mine/notebooks
+    packages:
+      - jupyterlab
+      - ipykernel
+      - pandas
+      - matplotlib
+
+  tasks:
+    - name: cretate env
+      file: 
+        path: "{{ notebooks_path }}"
+        state: directory
+        group: "users"
+      
+    - name: Ensure uv installed
+      ansible.builtin.package:
+        name:
+          - uv
+        state: present
+
+    - name: get uv location
+      ansible.builtin.shell: which uv
+      register: uv_path
+      changed_when: false 
+
+    - name: Create environment
+      ansible.builtin.shell: uv init --bare
+      args:
+        chdir: "{{ notebooks_path }}"
+        creates: "{{ notebooks_path }}/pyproject.toml"
+      
+    - name: install packages
+      ansible.builtin.shell: uv add {{ item }}
+      args:
+        chdir: "{{ notebooks_path }}"
+      loop: "{{ pacakges }}"
+ 
+    - name: sync env and install kernel
+      ansible.builtin.shell: |
+        uv sync
+        {{ notebooks_path }}/.venv/bin/python -m ipykernel install \
+          --user \
+          --name={{ kernel_name }} \
+          --display-name={{ kernel_name }}
+      args:
+        chdir: "{{ notebooks_path }}"
+ 
+    - name: Jupyter lab service
+      become: yes
+      copy:
+        dest: /etc/systemd/system/jupytherlab.service
+        content: |
+          [Unit]
+          Description=jupytherlab
+          
+          [Service]
+          Type=simple
+          ExecStart={{ uv_path.stdout }} run --directory {{ notebooks_path }} jupyter lab --port 17256 --NotebookApp.max_buffer_size=12000000000 --LabApp.token='{{ _token_ }}'
+          WorkingDirectory={{ notebooks_path }}
+          User={{ user_id }}
+          Group=users
+          # Restart=on-failure
+          # RestartSec=5s
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Jupyter lab service
+      become: yes
+      systemd:
+        name: jupytherlab
+        state: started
+        enabled: yes
+
