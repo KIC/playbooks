@@ -13,12 +13,20 @@
       - matplotlib
 
   tasks:
+    - name: Assert token passed
+      assert:
+        that: 
+          - _token_ is defined
+        fail_msg: "you need to define a tken via ansible-playbook jupyther.yaml -K --extra-vars '_token_=geheim'"
+        success_msg: "Token defined!"
+
     - name: cretate env
       file: 
         path: "{{ notebooks_path }}"
         state: directory
         group: "users"
-      
+        mode: "02770"
+
     - name: Ensure uv installed
       ansible.builtin.package:
         name:
@@ -31,18 +39,24 @@
       changed_when: false 
 
     - name: Create environment
-      ansible.builtin.shell: uv init --bare
+      ansible.builtin.shell: UV_NO_DEFAULT=1 uv init --bare --managed-python
+      become: no
       args:
         chdir: "{{ notebooks_path }}"
         creates: "{{ notebooks_path }}/pyproject.toml"
-      
+      environment:
+        UV_PYTHON_INSTALL_DIR: /opt/uv/python
+        UV_CACHE_DIR: /opt/uv/cache
+
     - name: install packages
       ansible.builtin.shell: uv add {{ item }}
+      become: no
       args:
         chdir: "{{ notebooks_path }}"
-      loop: "{{ pacakges }}"
+      loop: "{{ packages }}"
  
     - name: sync env and install kernel
+      become: no
       ansible.builtin.shell: |
         uv sync
         {{ notebooks_path }}/.venv/bin/python -m ipykernel install \

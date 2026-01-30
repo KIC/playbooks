@@ -6,6 +6,37 @@
     user_id: "{{ ansible_facts.env.SUDO_USER }}"
     # also had "quiet" and "resume=UUID=5067b521-24b9-4173-92b1-5fef7bb6b8ff" 
     grub_params: "mitigations=off loglevel=3 intel_pstate=active amd_iommu=off i915.enable_rc6=1 i915.enable_psr=1 i915.enable_fbc=1"
+    directories:
+      - /opt/uv/tools
+      - /opt/uv/python
+      - /opt/uv/cache
+      - /opt/appimages
+      - /opt/manual-binaries
+      - /home/.shared/downloads
+      - /home/.shared/data
+      - /home/.shared/data/work
+      - /home/.shared/data/mine
+      - /home/.shared/data/public
+      - /home/.shared/data/public/yfinance
+      - /home/.shared/sources
+      - /home/.shared/sources/work
+      - /home/.shared/sources/mine
+      - /home/.shared/sources/mine/notebooks
+      - /home/.shared/sources/public
+      - /home/.shared/documents
+      - /home/.shared/documents/work
+      - /home/.shared/documents/mine
+      - /home/.shared/documents/public
+      - /home/.shared/audios
+      - /home/.shared/audios/mine
+      - /home/.shared/audios/public
+      - /home/.shared/audios/public/music
+      - /home/.shared/images
+      - /home/.shared/images/mine
+      - /home/.shared/images/public
+      - /home/.shared/videos
+      - /home/.shared/videos/mine
+      - /home/.shared/videos/public
   tasks:
     - name: Ensure needed tools are installed
       ansible.builtin.package:
@@ -154,7 +185,7 @@
           - syncthing  # sync files across devices
         state: present
 
-    - name: Make user user is part of group users
+    - name: Make aur_builder user art of group users
       ansible.builtin.user:
         name: aur_builder
         create_home: yes
@@ -180,43 +211,37 @@
         mode: "02770"
         recurse: true
       become: yes
+      loop: "{{ directories }}"
+
+    - name: set acl defaults
+      ansible.builtin.shell: |
+        setfacl -R -m g:users:rwX,u::rwx {{ item }}
+        setfacl -R -d -m g:users:rwX,u::rwx {{ item }}
+      become: yes
       loop:
-        - /opt/uv-tools
-        - /opt/appimages
-        - /opt/manual-binaries
-        - /home/.shared/downloads
-        - /home/.shared/data
-        - /home/.shared/data/work
-        - /home/.shared/data/mine
-        - /home/.shared/data/public
-        - /home/.shared/data/public/yfinance
-        - /home/.shared/sources
-        - /home/.shared/sources/work
-        - /home/.shared/sources/mine
-        - /home/.shared/sources/mine/notebooks
-        - /home/.shared/sources/public
-        - /home/.shared/documents
-        - /home/.shared/documents/work
-        - /home/.shared/documents/mine
-        - /home/.shared/documents/public
-        - /home/.shared/audios
-        - /home/.shared/audios/mine
-        - /home/.shared/audios/public
-        - /home/.shared/audios/public/music
-        - /home/.shared/images
-        - /home/.shared/images/mine
-        - /home/.shared/images/public
-        - /home/.shared/videos
-        - /home/.shared/videos/mine
-        - /home/.shared/videos/public
+        - /opt
+        - /home/.shared
     
     - name: Install UV tools
       ansible.builtin.shell: >-
-        UV_TOOL_BIN_DIR=/usr/local/bin UV_TOOL_DIR=/opt/uv-tools uv tool install {{ item }}
+        UV_CACHE_DIR=/opt/uv/cache
+        UV_TOOL_BIN_DIR=/usr/local/bin
+        UV_TOOL_DIR=/opt/uv/tools
+        uv tool install {{ item }} --force
       become: yes
       loop:
         - yt-dlp
         # TODO install all uv tools to the shared location
+
+    - name: Set Environment Varaibles
+      become: yes
+      copy:
+        dest: /etc/profile.d/basis_env.sh
+        content: |
+          export UV_TOOL_BIN_DIR=/usr/local/bin
+          export UV_TOOL_DIR=/opt/uv/tools
+          export UV_PYTHON_INSTALL_DIR=/opt/uv/python
+          export UV_CACHE_DIR=/opt/uv/cache
 
   handlers:
     - name: update-grub

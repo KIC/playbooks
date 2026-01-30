@@ -1,3 +1,20 @@
+---
 - import_playbook: git.yaml
 - import_playbook: docker.yaml
 - import_playbook: ides.yaml
+
+- name: Install Basis System
+  hosts: localhost
+  become: yes
+  vars:
+    user_id: "{{ ansible_facts.env.SUDO_USER }}"
+  tasks:
+    - name: Environment Variables for development
+      become: yes
+      copy:
+        dest: /etc/profile.d/develop_env.sh
+        content: |
+          export PYTEST_ADDOPTS="-s"
+          export PYTORCH_ALLOC_CONF="max_split_size_mb:64,garbage_collection_threshold:0.6"
+
+          
