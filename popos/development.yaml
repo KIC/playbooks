@@ -193,10 +193,10 @@
     - name: Jupyter lab service
       become: yes
       copy:
-        dest: /etc/systemd/system/jupytherlab.service
+        dest: /etc/systemd/system/jupyterlab.service
         content: |
           [Unit]
-          Description=jupytherlab
+          Description=jupyterlab
           [Service]
           Type=simple
           ExecStart=/home/kic/.local/bin/jupyter-lab --ip=0.0.0.0 --port 17256 --NotebookApp.max_buffer_size=12000000000 --LabApp.token='{{ _token_ }}'
@@ -211,7 +211,7 @@
     - name: Jupyter lab service
       become: yes
       systemd:
-        name: jupytherlab
+        name: jupyterlab
         state: started
         enabled: yes
 

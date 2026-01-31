@@ -6,6 +6,7 @@
     user_id: "{{ ansible_facts.env.SUDO_USER }}"
     kernel_name: "Notebooks"
     notebooks_path: /home/.shared/sources/mine/notebooks
+    port: 17256
     packages:
       - jupyterlab
       - ipykernel
@@ -17,7 +18,7 @@
       assert:
         that: 
           - _token_ is defined
-        fail_msg: "you need to define a tken via ansible-playbook jupyther.yaml -K --extra-vars '_token_=geheim'"
+        fail_msg: "you need to define a tken via ansible-playbook jupyter.yaml -K --extra-vars '_token_=geheim'"
         success_msg: "Token defined!"
 
     - name: cretate env
@@ -69,14 +70,14 @@
     - name: Jupyter lab service
       become: yes
       copy:
-        dest: /etc/systemd/system/jupytherlab.service
+        dest: /etc/systemd/system/jupyterlab.service
         content: |
           [Unit]
-          Description=jupytherlab
+          Description=jupyterlab
           
           [Service]
           Type=simple
-          ExecStart={{ uv_path.stdout }} run --directory {{ notebooks_path }} jupyter lab --port 17256 --NotebookApp.max_buffer_size=12000000000 --LabApp.token='{{ _token_ }}'
+          ExecStart={{ uv_path.stdout }} run --directory {{ notebooks_path }} jupyter lab --port {{ port }} --NotebookApp.max_buffer_size=12000000000 --LabApp.token='{{ _token_ }}'
           WorkingDirectory={{ notebooks_path }}
           User={{ user_id }}
           Group=users
@@ -89,7 +90,7 @@
     - name: Jupyter lab service
       become: yes
       systemd:
-        name: jupytherlab
+        name: jupyterlab
         state: started
         enabled: yes
 

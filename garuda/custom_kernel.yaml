@@ -8,7 +8,7 @@
     # 'linux-cachyos' is a common name, but it might vary.
     kernel_aur_package_name: "linux-cachyos"
     # The AUR helper to be used. 'yay' is a popular choice or paru
-    aur_helper: "paru"
+    aur_helper: "yay"
     # Base directory for build and cache
     build_root_dir: "/var/tmp"
     # Directory for building the package

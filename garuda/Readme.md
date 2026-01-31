@@ -4,10 +4,23 @@
 1. Then add localhost as default host
 `sudo mkdir -p /etc/ansible && echo "localhost ansible_connection=local" | sudo tee -a /etc/ansible/hosts`
 1. install ansible requiremnts: `ansible-galaxy collection install -r requirements.yaml`
-1. run playbooks like `ansible-playbook basis.yaml -K`
+1. run playbooks like:
+  1.  `ansible-playbook -K basis.yaml`
+  1.  `ansible-playbook -K custom_kernel.yaml`
+  1.  `ansible-playbook -K unbound.yaml`
+  1.  `ansible-playbook -K netplan.yaml`
+  1.  `ansible-playbook -K optmize_battary.yaml`
+  1.  `ansible-playbook -K security.yaml`
+  1.  `ansible-playbook -K developent.yaml`
+  1.  `ansible-playbook -K nvidia.yaml`
+  1.  `ansible-playbook -K directories.yaml`
+      **IMPORTANT** now the use needs the group rights to continue in a shell without logging out you can 
+      `su - $USER` and then continue
+  1. `ansible-playbook -K jupyter.yaml --extra-vars "_token_=geheim"`
 1. list added timers: `sudo systemctl list-timers`
-1. add secrets via extra vars: `ansible-playbook jupyther.yaml -K --extra-vars "_token_=geheim"`
+1. add secrets via extra vars: `ansible-playbook -K jupyter.yaml --extra-vars "_token_=geheim"`
 
+**IMPORTANT** before rebooting issue a garuda-update -a 
 
 ### Cuda
 The nvidia playbook installs everything for cuda and compute only, you can chek the renderer should stil be

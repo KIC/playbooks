@@ -1,0 +1,59 @@
+---
+- name: Add NetPlan networks config manager
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install NetPlan
+      package:
+        name: netplan
+        state: latest
+
+    - name: Create Netplan directory
+      file:
+        path: /etc/netplan
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Initialize basic Netplan config from NetworkManager  
+      shell: netplan generate
+      become: true
+      changed_when: false
+      failed_when: false
+
+    - name: Get first Wi-Fi interface
+      set_fact:
+        wifi_interface: "{{ ansible_interfaces | select('match', '^(wlan|wlp|wlo)') | first | default('wlan0') }}"
+
+    - name: Debug Wi-Fi interface
+      debug:
+        msg: "Using Wi-Fi interface: {{ wifi_interface }}"
+
+    - name: Deploy Wi-Fi Netplan config
+      copy:
+        content: |
+          network:
+            version: 2
+            renderer: NetworkManager
+            wifis:
+              # <wifi_interface>:
+              #   dhcp4: true
+              #   # eventually dissalow ipv6 
+              #   dhcp6: false
+              #   # always use optional true to not block boot
+              #   optional: true
+              #   nameservers:
+              #     addresses:
+              #       # always add our local unbound
+              #       - 127.0.0.1
+              #       # add optional fall backs
+              #       - 1.1.1.1
+              #       - 8.8.8.8
+              #   access-points:
+              #     "<wifi_ssid>":
+              #       password: "<wifi_password>"
+        dest: /etc/netplan/50-wifi.yaml
+        owner: root
+        group: root
+        mode: "0644"

@@ -123,7 +123,7 @@
         group: root
         mode: '0644'
         
-    - name: Increase filesystem watcher limit (Garuda compatible)
+    - name: Increase filesystem watcher limit
       become: yes
       lineinfile:
         path: /etc/sysctl.d/99-inotify.conf  # Higher precedence directory
@@ -142,11 +142,16 @@
           - depot-tools-git
           - find-the-command-git
           - gperf
+          - paru  # we use yay because paru has poor ansible automation properties!
         state: absent
 
     - name: Install standard software
       ansible.builtin.package:
         name:
+          - yay  # we use yay because paru has poor ansible automation properties!
+          - foot  # fast leightweigt wayland console
+          - nvim  # colored vim
+          - vim  # plin vim
           - flatpak  # enble flatpak packages
           - convmv  # convert between file encodings 
           - firejail  # run any executable in a sandbox environment
@@ -195,6 +200,30 @@
         shell: /bin/bash
         state: present
       become: yes
+
+    - name: Configure sudoers - passwordless pacman for aur_builder
+      become: yes
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers.d/aur_builder
+        create: yes
+        line: "aur_builder ALL=(ALL) NOPASSWD: /usr/bin/pacman *"
+        validate: "visudo -cf %s"
+        
+    - name: Setup yay config (non-interactive)
+      become: yes
+      become_user: aur_builder
+      ansible.builtin.copy:
+        content: |
+          {
+            "answerdiff": "None",
+            "answeredit": "None", 
+            "answerclean": "None",
+            "mflags": "--noconfirm --needed",
+            "sortby": "name"
+          }
+        dest: "/home/aur_builder/.config/yay/config.json"
+        mode: '0644'
+      register: yay_config
 
     - name: Make user user is part of group users
       ansible.builtin.user:
@@ -247,6 +276,6 @@
     - name: update-grub
       ansible.builtin.command: update-grub
    
-    - name: Apply sysctl changes
+    - name: sysctl
       command: sysctl --system
 

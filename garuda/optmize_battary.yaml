@@ -42,6 +42,7 @@
         name:
           - powertop
           - auto-cpufreq
+          - power-profiles-daemon
         state: present
 
     - name: Enable auto-cpufreq (Garuda's TLP replacement)

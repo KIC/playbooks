@@ -26,7 +26,7 @@
     - name: Add symlinks
       ansible.builtin.file:
         src: "/home/{{ user_id }}/{{ item.src }}"
-        dest: "/home/{{ user_id }}/{{ item.tgt }}
+        dest: "/home/{{ user_id }}/{{ item.tgt }}"
         state: "link"
       loop:
        - { src: "audios/public", tgt: "Public/audios" }

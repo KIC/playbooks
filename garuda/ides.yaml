@@ -6,7 +6,7 @@
   vars:
     user_id: "{{ ansible_facts.env.SUDO_USER }}"
     # The AUR helper to be used. 'yay' is a popular choice or paru
-    aur_helper: "paru"
+    aur_helper: "yay"
   tasks:
     - name: Install pacman software
       ansible.builtin.package:
@@ -26,9 +26,6 @@
         name: cursor-bin
         state: present
         use: "{{ aur_helper }}"
-        extra_args:
-          - --noconfirm
-          - --skip-review
         aur_only: yes
 
     - name: install snapd
@@ -38,9 +35,6 @@
         name: snapd
         state: present
         use: "{{ aur_helper }}"
-        extra_args:
-          - --noconfirm
-          - --skip-review
         aur_only: yes
 
     - name: enable snapd
