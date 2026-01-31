@@ -19,4 +19,5 @@
     - name: config git settings and install github cli extensions
       ansible.builtin.shell: |
         git config --global credential.helper store
+        git config --global user.name "KIC"
         # gh extension install actions/gh-actions-cache  # FIXME 
