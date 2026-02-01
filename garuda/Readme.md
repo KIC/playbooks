@@ -22,6 +22,16 @@
 
 **IMPORTANT** before rebooting issue a garuda-update -a 
 
+
+### OnlyOffice and Co on Wayland
+Since both office solutions realy eat a lot of cpu or have weired spikes on XWayland, it is easer to use
+Xephyr - i.e.
+
+```bash
+res=$(xrandr | grep ' primary ' | cut -d' ' -f4 | sed 's/+.*//'); Xephyr :1 -ac -screen "$res" -resizeable & sleep 1; DISPLAY=:1 onlyoffice-desktopeditors
+```
+
+
 ### Cuda
 The nvidia playbook installs everything for cuda and compute only, you can chek the renderer should stil be
 the iGPU `glxinfo | grep renderer`

@@ -148,6 +148,7 @@
     - name: Install standard software
       ansible.builtin.package:
         name:
+          - xorg-server-xephyr  # nested X11 Server
           - onlyoffice  # more ms like office
           - yay  # we use yay because paru has poor ansible automation properties!
           - foot  # fast leightweigt wayland console
