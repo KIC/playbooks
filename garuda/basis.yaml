@@ -148,6 +148,7 @@
     - name: Install standard software
       ansible.builtin.package:
         name:
+          - onlyoffice  # more ms like office
           - yay  # we use yay because paru has poor ansible automation properties!
           - foot  # fast leightweigt wayland console
           - nvim  # colored vim
