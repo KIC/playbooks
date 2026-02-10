@@ -15,10 +15,15 @@
           - visual-studio-code-bin
           - uv  # Python manager
           - nvm  # nodejs manager
+          - npm
           - nodejs
           - gemini-cli
         state: present
 
+    - name: install kilo.ai cli
+      ansible.builtin.shell: |
+        npm install -g @kilocode/cli
+        
     - name: install cursor
       become: yes
       become_user: aur_builder
@@ -49,6 +54,10 @@
         dest: /snap
         state: link
       become: yes
+
+    - name: install extensions
+      ansible.builtin.shell: |
+        gemini extensions install https://github.com/gemini-cli-extensions/conductor --auto-update --consent
 
   # TODO install adb android tools 
   # TODO install snaps

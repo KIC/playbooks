@@ -1,0 +1,11 @@
+
+---
+- name: Install Development Tools
+  hosts: localhost
+  vars:
+    user_id: "{{ ansible_facts.env.USER }}"
+  tasks:
+    - name: Install pacman software
+      debug:
+        msg: "{{ user_id }}"
+

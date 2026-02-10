@@ -1,0 +1,76 @@
+---
+- name: Configure Btrfs compression + recompress
+  hosts: localhost
+  become: true
+  vars:
+    btrfs_zstd_level: 9
+
+  tasks:
+    - name: Read /etc/fstab
+      slurp:
+        path: /etc/fstab
+      register: fstab_raw
+
+    - name: Rewrite btrfs fstab entries
+      set_fact:
+        fstab_new_lines: >-
+          {%- set lines = fstab_raw.content | b64decode | splitlines -%}
+          {%- set result = [] -%}
+          {%- for line in lines -%}
+            {%- set parts = line.split() -%}
+            {%- set trimmed = line | trim -%}
+            {%- if trimmed == '' or trimmed.startswith('#') or (parts | length < 4) or (parts[2] != 'btrfs') -%}
+              {{- result.append(line) -}}
+            {%- else -%}
+              {%- set opts = (parts[3] | default('')).split(',') -%}
+              {%- set new_opts = [] -%}
+              {%- set replaced = false -%}
+              {%- for opt in opts -%}
+                {%- if opt.startswith(('compress=','compress-force=')) -%}
+                  {%- set _ = new_opts.append('compress=zstd:{{ btrfs_zstd_level }}') -%}
+                  {%- set replaced = true -%}
+                {%- elif opt | trim -%}
+                  {%- set _ = new_opts.append(opt) -%}
+                {%- endif -%}
+              {%- endfor -%}
+              {%- if not replaced -%}
+                {%- set _ = new_opts.append('compress=zstd:{{ btrfs_zstd_level }}') -%}
+              {%- endif -%}
+              {{- result.append(parts[0] ~ ' ' ~ parts[1] ~ ' ' ~ parts[2] ~ ' ' ~ new_opts | join(',') ~ ' ' ~ (parts[4] | default('0')) ~ ' ' ~ (parts[5] | default('0'))) -}}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ result | join('\n') }}
+
+    - name: Backup and update /etc/fstab
+      copy:
+        content: "{{ fstab_new_lines }}\n"
+        dest: /etc/fstab
+        backup: yes
+        mode: '0644'
+        owner: root
+        group: root
+      register: fstab_changed
+
+    - name: Get Btrfs mountpoints
+      command: awk '$3=="btrfs" {print $2}' /proc/mounts
+      register: btrfs_mounts
+      changed_when: false
+
+    - name: Remount Btrfs filesystems (if fstab changed)
+      mount:
+        path: "{{ item }}"
+        fstab: yes
+        state: remounted
+      loop: "{{ btrfs_mounts.stdout_lines | default([]) }}"
+      when: 
+        - fstab_changed is changed
+        - btrfs_mounts.stdout_lines is defined
+
+    - name: Recompress existing data on Btrfs mountpoints
+      command: btrfs filesystem defragment -r -v -czstd "{{ item }}"
+      loop: "{{ btrfs_mounts.stdout_lines | default([]) }}"
+      args:
+        warn: false
+      register: defrag_result
+      failed_when: defrag_result.rc not in [0, 1]
+      when: fstab_changed is changed
