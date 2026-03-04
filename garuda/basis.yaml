@@ -38,6 +38,14 @@
       - /home/.shared/videos/mine
       - /home/.shared/videos/public
   tasks:
+    - name: Configure global git user for SUDO_USER
+      become: no
+      when: user_id != ''
+      become_user: "{{ user_id }}"
+      ansible.builtin.shell: |
+        git config --global user.name "KIC"
+        git config --global user.email "kic@github.com"
+
     - name: Ensure needed tools are installed
       ansible.builtin.package:
         name:
@@ -132,7 +140,7 @@
         owner: root
         group: root
         mode: '0644'
-      notify: apply sysctl
+      notify: sysctl
 
     - name: Remove unused software
       ansible.builtin.package:
@@ -211,6 +219,15 @@
         line: "aur_builder ALL=(ALL) NOPASSWD: /usr/bin/pacman *"
         validate: "visudo -cf %s"
         
+    - name: Ensure yay config directory exists
+      become: yes
+      file:
+        path: /home/aur_builder/.config/yay
+        state: directory
+        owner: aur_builder
+        group: aur_builder
+        mode: '0755'
+
     - name: Setup yay config (non-interactive)
       become: yes
       become_user: aur_builder
