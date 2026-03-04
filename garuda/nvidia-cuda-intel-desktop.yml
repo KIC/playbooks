@@ -1,0 +1,159 @@
+---
+- name: Intel desktop + NVIDIA CUDA-only (safe setup)
+  hosts: localhost
+  become: yes
+  gather_facts: true
+
+  vars:
+    cuda_profile_script: "/etc/profile.d/cuda.sh"
+    nvidia_modprobe_conf: "/etc/modprobe.d/nvidia-power.conf"
+
+  tasks:
+    ####################################################################
+    # 0. Sanity / cleanup of previous "compute-only" experiments
+    ####################################################################
+
+    - name: Remove dangerous Xorg overrides from earlier attempts
+      ansible.builtin.file:
+        path: "/etc/X11/xorg.conf.d/10-nvidia-compute.conf"
+        state: absent
+
+    - name: Ensure Xorg config directory exists
+      ansible.builtin.file:
+        path: "/etc/X11/xorg.conf.d"
+        state: directory
+        mode: "0755"
+
+    # IMPORTANT: we do NOT touch GRUB or kernel command line here.
+    # If you previously added nvidia-drm.modeset=0 manually, remove that yourself
+    # with a text editor + grub-mkconfig or via Garuda tools.
+
+    ####################################################################
+    # 1. Packages – NVIDIA + CUDA + 32-bit userspace
+    ####################################################################
+
+    - name: Ensure kernel headers for common kernels are installed
+      ansible.builtin.package:
+        name:
+          - linux-headers
+          - linux-lts-headers
+          - linux-zen-headers
+          - linux-cachyos-headers
+        state: present
+
+    - name: Install NVIDIA + CUDA packages
+      ansible.builtin.package:
+        name:
+          - nvidia-dkms
+          - nvidia-utils
+          - nvidia-settings
+          - nvidia-prime
+          - lib32-nvidia-utils
+          - cuda
+          - cudnn
+        state: latest
+        extra_args: --noconfirm --needed
+
+    ####################################################################
+    # 2. NVIDIA driver options – power management, NOT display hacks
+    ####################################################################
+
+    - name: Configure NVIDIA power management (no DRM modeset changes here)
+      ansible.builtin.copy:
+        dest: "{{ nvidia_modprobe_conf }}"
+        mode: "0644"
+        content: |
+          # NVIDIA power management for hybrid (Intel display + NVIDIA compute)
+          # DO NOT disable modeset here; let the system decide.
+          options nvidia NVreg_PreserveVideoMemoryAllocations=1 NVreg_Powerd=1 NVreg_DynamicPowerManagement=0x02
+
+    ####################################################################
+    # 3. Systemd services – persistence + sleep support
+    ####################################################################
+
+    - name: Enable NVIDIA persistence and power-related services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: yes
+        state: started
+      loop:
+        - nvidia-persistenced
+        - nvidia-suspend
+        - nvidia-resume
+        - nvidia-hibernate
+        - nvidia-powerd
+      register: nvidia_services
+      failed_when: false
+
+    - name: Report NVIDIA services that failed to start (non-fatal)
+      ansible.builtin.debug:
+        msg: "Service {{ item.item }} failed to start: {{ item.msg | default('no message') }}"
+      loop: "{{ nvidia_services.results | default([]) }}"
+      when: item is defined and item.failed is defined and item.failed
+
+    ####################################################################
+    # 4. CUDA environment – system-wide but low risk
+    ####################################################################
+
+    - name: Ensure CUDA environment is sourced system-wide
+      ansible.builtin.copy:
+        dest: "{{ cuda_profile_script }}"
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          # Simple CUDA environment; safe for all shells
+          if [[ -d /opt/cuda/bin ]]; then
+            case ":${PATH}:" in
+              *":/opt/cuda/bin:"*) ;;
+              *) export PATH="/opt/cuda/bin${PATH:+:${PATH}}";;
+            esac
+            case ":${LD_LIBRARY_PATH:-}:" in
+              *":/opt/cuda/lib64:"*) ;;
+              *) export LD_LIBRARY_PATH="/opt/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}";;
+            esac
+            export CUDA_HOME="/opt/cuda"
+          fi
+
+    ####################################################################
+    # 5. Make sure Intel stays the main display GPU
+    ####################################################################
+    # We rely on Garuda's default hybrid/Optimus config.
+    # The key is: DO NOT force NVIDIA as primary, DO NOT disable Intel.
+
+    - name: Ensure a minimal Intel Xorg device stanza exists (safe)
+      ansible.builtin.copy:
+        dest: /etc/X11/xorg.conf.d/20-intel-modesetting.conf
+        mode: "0644"
+        content: |
+          Section "Device"
+              Identifier  "IntelGPU"
+              Driver      "modesetting"
+          EndSection
+
+    ####################################################################
+    # 6. User guidance – how to actually use CUDA / NVIDIA on demand
+    ####################################################################
+
+    - name: Show instructions for using NVIDIA only for compute
+      ansible.builtin.debug:
+        msg: |
+          NVIDIA + CUDA are installed, Intel is configured as the standard display device.
+          
+          Recommended usage pattern:
+          
+          1. Reboot your system once after this playbook.
+          2. Verify that your display/login is working as usual (Intel-driven).
+          3. Check that nvidia-smi works and shows minimal processes (likely Xorg):
+               nvidia-smi
+          4. Run CUDA / GPU-heavy workloads explicitly on NVIDIA with:
+               prime-run <your_app>
+             or, for pure CUDA programs that don't create windows, just:
+               <your_cuda_app>
+             (On most Garuda hybrid setups, CUDA will automatically use the NVIDIA GPU.)
+          
+          If you ever lose the login screen again:
+            - Switch to a TTY (Ctrl+Alt+F2), log in, and run:
+                sudo rm /etc/X11/xorg.conf.d/10-nvidia-compute.conf 2>/dev/null || true
+                sudo systemctl restart sddm
+            - This should restore a working graphical login.
+
