@@ -11,44 +11,40 @@
       ansible.builtin.package_facts:
         manager: auto
 
-    - name: Install eventually missing kernel headers
+    - name: Ensure kernel headers for common kernels are installed
       ansible.builtin.package:
-        name: "{{ item }}"
+        name:
+          - linux-headers
+          - linux-lts-headers
+          - linux-zen-headers
+          - linux-cachyos-headers
         state: present
-      loop:
-        - linux-headers
-        - linux-lts-headers
-        - linux-zen-headers
-        - linux-cachyos-headers
-      when: item not in ansible_facts.packages
 
     - name: Install NVIDIA drivers for compute (DKMS)
       ansible.builtin.package:
-        name:          
+        name:
           - nvidia-dkms
           - nvidia-utils
           - nvidia-settings
           - nvidia-prime
           - lib32-nvidia-utils
-        state: latest
-
-    - name: Install CUDA toolkit and cuDNN
-      pacman:
-        name:
           - cuda
           - cudnn
         state: latest
+        extra_args: --noconfirm --needed
 
-    - name: Enable NVIDIA power management kernel options
+    - name: Enable NVIDIA kernel/module options (compute-only)
       copy:
         dest: /etc/modprobe.d/nvidia-power.conf
         content: |
           # Required for suspend/hibernate + compute-only mode
           options nvidia NVreg_PreserveVideoMemoryAllocations=1 NVreg_Powerd=1 NVreg_DynamicPowerManagement=0x02
+          # Disable DRM KMS on the NVIDIA driver so the iGPU remains primary for display
+          options nvidia-drm modeset=0
         backup: yes
 
     - name: Enable NVIDIA sleep services system-wide
-      systemd:
+      ansible.builtin.systemd:
         name: "{{ item }}"
         enabled: yes
         state: started
@@ -57,6 +53,20 @@
         - nvidia-hibernate
         - nvidia-resume
         - nvidia-powerd
+      register: nvidia_sleep_results
+      failed_when: false
+
+    - name: Report NVIDIA sleep services that failed to start
+      ansible.builtin.debug:
+        msg: "Service {{ item.item }} failed to start: {{ item.msg | default('no message') }}"
+      loop: "{{ nvidia_sleep_results.results }}"
+      when: item.failed is defined and item.failed
+
+    - name: Ensure nvidia-persistenced is enabled (keeps GPU available for compute)
+      systemd:
+        name: nvidia-persistenced
+        enabled: yes
+        state: started
 
     - name: NVIDIA GPU poweroff service (sleeps until CUDA demand)
       copy:
@@ -84,13 +94,41 @@
         state: started
         daemon_reload: yes
 
+    - name: Configure Xorg/Wayland to ignore NVIDIA for display
+      copy:
+        dest: /etc/X11/xorg.conf.d/10-nvidia-compute.conf
+        content: |
+          # Treat the NVIDIA card as compute-only – do not bind any outputs
+          Section "Device"
+              Identifier "NvidiaComputeOnly"
+              Driver "nvidia"
+              Option "UseDisplayDevice" "None"
+              Option "AllowEmptyInitialConfiguration" "True"
+          EndSection
+
+          Section "OutputClass"
+              Identifier "nvidia-compute"
+              MatchDriver "nvidia-drm"
+              Driver "nvidia"
+              Option "UseDisplayDevice" "None"
+              Option "AllowEmptyInitialConfiguration" "True"
+          EndSection
+        mode: '0644'
+
+    - name: Add nvidia-drm.modeset=0 to GRUB kernel command line
+      replace:
+        path: /etc/default/grub
+        regexp: '^(GRUB_CMDLINE_LINUX=")([^"]*)(")'
+        replace: '\\1\\2 nvidia-drm.modeset=0\\3'
+      notify: update-grub
+
     - name: Ensure CUDA environment is sourced system-wide
       copy:
         dest: /etc/profile.d/cuda.sh
         content: |
           #!/bin/bash
           if [[ -d /opt/cuda/bin ]]; then
-            export PATH=/opt/ cuda/bin${PATH:+:${PATH}}
+            export PATH=/opt/cuda/bin${PATH:+:${PATH}}
             export LD_LIBRARY_PATH=/opt/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
             export CUDA_HOME=/opt/cuda
           fi
@@ -99,5 +137,20 @@
     - name: Run full Garuda update
       debug:
         msg: |
-          you should really run sudo garuda-update -a now to make sure initramfs is not broken!
-      
+          you should really run sudo garuda-update -a now to make sure initramfs is not broken!      
+  handlers:
+    - name: update-grub
+      ansible.builtin.shell: |
+        # try to regenerate the GRUB configuration if the tool exists;
+        # do nothing on an EFI/systemd-boot system where grub is not present
+        if command -v grub-mkconfig >/dev/null 2>&1; then
+          grub-mkconfig -o /boot/grub/grub.cfg
+        elif command -v update-grub >/dev/null 2>&1; then
+          update-grub
+        else
+          # no grub command available, harmless no-op
+          echo "no grub config tool found, skipping" >&2
+        fi
+      become: yes
+      changed_when: false
+      failed_when: false
