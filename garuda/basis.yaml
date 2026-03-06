@@ -58,6 +58,7 @@
       ansible.builtin.shell: |
         git config --global user.name "KIC"
         git config --global user.email "kic@github.com"
+        git config pull.ff only
 
     - name: Ensure needed tools are installed
       ansible.builtin.package:
