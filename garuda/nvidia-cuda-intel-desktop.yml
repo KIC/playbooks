@@ -4,11 +4,24 @@
   become: yes
   gather_facts: yes
   vars:
-    # Auto-detect system info
-    intel_gpu_card: "{{ (ansible_facts.pci_cards | selectattr('vendor_id', 'equalto', '0x8086') | selectattr('device_id', 'search', 'VGA') | list | length > 0) | ternary('/dev/dri/card1', '/dev/dri/card0') }}"
-    nvidia_gpu_card: "{{ (ansible_facts.pci_cards | selectattr('vendor_id', 'equalto', '0x10de') | selectattr('device_id', 'search', 'VGA') | list | first | default({})).device | default('card0') }}"
+    intel_gpu_card: "/dev/dri/card1"     # Your verified Intel Iris Xe
+    nvidia_gpu_card: "/dev/dri/card0"    # Your verified NVIDIA RTX A3000
     
   pre_tasks:
+    - name: Verify nvidia-drm.modeset=0 protection (SHELL)
+      shell: |
+        if cat /proc/cmdline | grep -q "nvidia.*modeset=0"; then
+          echo "OK: nvidia-drm.modeset=0 confirmed"
+          exit 0
+        else
+          echo "FAILED: nvidia-drm.modeset=0 NOT found"
+          cat /proc/cmdline
+          exit 1
+        fi
+      register: modeset_check
+      changed_when: false
+      failed_when: modeset_check.rc != 0
+      
     - name: Create Pre-NVIDIA snapshot
       shell: snapper -c root create --description "Pre-NVIDIA-CUDA-{{ ansible_facts.date_time.epoch }}"
       register: snapshot_pre
@@ -82,6 +95,17 @@
           prime-run nvidia-smi || echo "PRIME offload failed"
         mode: '0755'
 
+    - name: Enable all NVIDIA systemd services
+      systemd:
+        name: "{{ item }}"
+        enabled: yes
+        state: started
+      loop:
+        - nvidia-persistenced
+        - nvidia-suspend
+        - nvidia-hibernate  
+        - nvidia-resume
+
   handlers:
     - name: regenerate initramfs
       shell: echo ""
@@ -93,11 +117,6 @@
         daemon_reload: yes
 
   post_tasks:
-    - name: Create Post-NVIDIA snapshot
-      shell: snapper -c root create --description "Post-NVIDIA-CUDA-{{ ansible_facts.date_time.epoch }}"
-      register: snapshot_post
-      changed_when: snapshot_post.rc == 0
-
     - name: Test NVIDIA compute functionality
       shell: /usr/local/bin/test-nvidia-cuda
       register: cuda_test

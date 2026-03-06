@@ -5,7 +5,9 @@
   vars:
     user_id: "{{ ansible_facts.env.SUDO_USER }}"
     # also had "quiet" and "resume=UUID=5067b521-24b9-4173-92b1-5fef7bb6b8ff" 
-    grub_params: "mitigations=off loglevel=3 intel_pstate=active amd_iommu=off i915.enable_rc6=1 i915.enable_psr=1 i915.enable_fbc=1"
+    # grub_params: "mitigations=off loglevel=3 intel_pstate=active amd_iommu=off i915.enable_rc6=1 i915.enable_psr=1 i915.enable_fbc=1"
+    grub_params: "mitigations=off"
+    is_amd: false  # Set to true if using AMD GPU, false otherwise
     directories:
       - /opt/uv/tools
       - /opt/uv/python
@@ -37,6 +39,17 @@
       - /home/.shared/videos
       - /home/.shared/videos/mine
       - /home/.shared/videos/public
+
+  pre_tasks:      
+    - name: Create Pre-BASIS snapshot
+      shell: snapper -c root create --description "Pre-BASIS-{{ ansible_facts.date_time.epoch }}"
+      register: snapshot_pre
+      changed_when: snapshot_pre.rc == 0
+
+    - name: Update GRUB to include new snapshot
+      shell: grub-mkconfig -o /boot/grub/grub.cfg
+      when: snapshot_pre.rc == 0
+
   tasks:
     - name: Configure global git user for SUDO_USER
       become: no
@@ -59,7 +72,8 @@
 
     - name: Set GRUB parameters including AMD GPU GTT size
       ansible.builtin.set_fact:
-        grub_params: "{{ grub_params }} amdgpu.gttsize={{ ram_output.stdout }} ttm.pages_limit={{ ram_output.stdout }}"
+        grub_params: "{{ grub_params }} amd_iommu=off amdgpu.gttsize={{ ram_output.stdout }} ttm.pages_limit={{ ram_output.stdout }}"
+      when: is_amd | default(false)
 
     - name: Get current GRUB_CMDLINE_LINUX_DEFAULT
       ansible.builtin.command: grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub
@@ -68,22 +82,36 @@
 
     - name: Extract current parameters
       ansible.builtin.set_fact:
-        current_params: "{{ current_grub.stdout | regex_replace('^GRUB_CMDLINE_LINUX_DEFAULT=\"(.*)\"$', '\\1') }}"
+        current_params: "{{ current_grub.stdout | regex_replace(\"^GRUB_CMDLINE_LINUX_DEFAULT=[\\\"'](.*)[\\\"']$\", '\\1') }}"
 
-    - name: Extract resume parameter
+    - name: Remove splash and quiet from current parameters
       ansible.builtin.set_fact:
-        resume_param: "{{ current_params | regex_findall('resume=UUID=[^ ]+') | first | default('') }}"
+        current_params_no_splash: "{{ current_params | regex_replace('\\b(splash|quiet)\\b', '') | trim }}"
 
-    - name: Append resume parameter to GRUB params
+    - name: Prepare parameter lists
       ansible.builtin.set_fact:
-        grub_params: "{{ resume_param }} {{ grub_params }}"
-      when: resume_param != ''
+        current_list: "{{ current_params_no_splash.split() }}"
+        grub_list: "{{ grub_params.split() }}"
+
+    - name: Combine and deduplicate parameters
+      ansible.builtin.set_fact:
+        combined_list: "{{ current_list + grub_list | unique }}"
+
+    - name: Create final parameters string
+      ansible.builtin.set_fact:
+        final_params: "{{ combined_list | join(' ') }}"
+
+    - name: Debug final parameters (review before applying)
+      ansible.builtin.debug:
+        msg: "Final GRUB_CMDLINE_LINUX_DEFAULT will be: {{ final_params }}"
+      when: ansible_check_mode or not ansible_check_mode  # Always show for safety
 
     - name: Set GRUB default kernel parameters
       ansible.builtin.lineinfile:
         path: /etc/default/grub
         regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
-        line: 'GRUB_CMDLINE_LINUX_DEFAULT="{{ grub_params }}"'
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="{{ final_params }}"'
+        backup: yes
       notify: update-grub
 
     - name: Create disable-turbo-battery service
@@ -161,7 +189,7 @@
           - yay  # we use yay because paru has poor ansible automation properties!
           - foot  # fast leightweigt wayland console
           - nvim  # colored vim
-          - vim  # plin vim
+          - vim  # plain vim
           - flatpak  # enble flatpak packages
           - convmv  # convert between file encodings 
           - firejail  # run any executable in a sandbox environment

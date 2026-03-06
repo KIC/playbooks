@@ -2,6 +2,17 @@
 - name: Installand Configure  Security Software
   hosts: localhost
   become: yes
+
+  pre_tasks:      
+    - name: Create Pre-SECURITY snapshot
+      shell: snapper -c root create --description "Pre-SECURITY-{{ ansible_facts.date_time.epoch }}"
+      register: snapshot_pre
+      changed_when: snapshot_pre.rc == 0
+
+    - name: Update GRUB to include new snapshot
+      shell: grub-mkconfig -o /boot/grub/grub.cfg
+      when: snapshot_pre.rc == 0
+
   tasks:
     - name: Install security software
       ansible.builtin.package:

@@ -128,23 +128,14 @@
       - name: Ensure base build tools and system dependencies are installed
         ansible.builtin.package:
           name:
-            - "{{ aur_helper }}"
-            - base-devel
-            - git
-            - wget
-            - make
-            - gcc
-            - grub
-            - efibootmgr # Required for GRUB on UEFI systems
-            - patch # Common utility for kernel building
-            - bc # Often required by kernel build scripts
-            - python # May be needed by some AUR build scripts or helpers
-            - python-pip # For any pip-dependent tools
+            - bc
             - pamac
             - pahole
             - llvm
             - clang
-          state: present
+            - linux-cachyos
+            - linux-cachyos-headers
+          state: latest
 
       - name: Check if AUR helper ({{ aur_helper }}) is installed
         ansible.builtin.stat:

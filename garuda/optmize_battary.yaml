@@ -36,6 +36,17 @@
       
       [Install]
       WantedBy=timers.target
+
+  pre_tasks:      
+    - name: Create Pre-OPTIMIZE-BATTERY snapshot
+      shell: snapper -c root create --description "Pre-OPTIMIZE-BATTERY-{{ ansible_facts.date_time.epoch }}"
+      register: snapshot_pre
+      changed_when: snapshot_pre.rc == 0
+
+    - name: Update GRUB to include new snapshot
+      shell: grub-mkconfig -o /boot/grub/grub.cfg
+      when: snapshot_pre.rc == 0
+
   tasks:
     - name: Install Garuda-native battery tools
       package:

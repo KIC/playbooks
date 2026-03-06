@@ -2,6 +2,17 @@
 - name: Replace systemd-resolved with Unbound
   hosts: all
   become: yes
+
+  pre_tasks:      
+    - name: Create Pre-UNBOUND snapshot
+      shell: snapper -c root create --description "Pre-UNBOUND-{{ ansible_facts.date_time.epoch }}"
+      register: snapshot_pre
+      changed_when: snapshot_pre.rc == 0
+
+    - name: Update GRUB to include new snapshot
+      shell: grub-mkconfig -o /boot/grub/grub.cfg
+      when: snapshot_pre.rc == 0
+
   tasks:
     - name: Install Unbound
       package:
@@ -44,7 +55,7 @@
             forward-addr: 8.8.8.8
             forward-addr: 2001:4860:4860::8888
 
-      notify: Restart Unbound
+      notify: restart unbound
 
     - name: Validate Unbound configuration
       command: unbound-checkconf /etc/unbound/unbound.conf
