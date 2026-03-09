@@ -1,0 +1,87 @@
+# Needed Setup - convert to ansible later
+
+* install paman -S swaylock darkman seahorse
+systemctl --user enable --now darkman
+cd ~/.local/share/ ln -s ~/.config/darkman/dark-mode.d . and light-mode.d as well
+
+## gnome keyring
+append to ~/.profile:
+```
+case "$DESKTOP_SESSION" in
+  sway)
+    export $(gnome-keyring-daemon --start --components=pkcs11,secrets,ssh)
+    ;;
+esac
+```
+
+add gnome to /etc/pam.d/system-auth
+```
+#%PAM-1.0
+
+auth       required                    pam_faillock.so      preauth
+# Optionally use requisite above if you do not want to prompt for the password
+# on locked accounts.
+-auth      [success=2 default=ignore]  pam_systemd_home.so
+auth       [success=1 default=bad]     pam_unix.so          try_first_pass nullok
+auth       [default=die]               pam_faillock.so      authfail
+auth       optional                    pam_permit.so
+auth       required                    pam_env.so
+auth       required                    pam_faillock.so      authsucc
+# If you drop the above call to pam_faillock.so the lock will be done also
+# on non-consecutive authentication failures.
+
+# Gnome Keyring
+auth       optional                    pam_gnome_keyring.so     # ← ADD THIS
+
+-account   [success=1 default=ignore]  pam_systemd_home.so
+account    required                    pam_unix.so
+account    optional                    pam_permit.so
+account    required                    pam_time.so
+
+-password  [success=1 default=ignore]  pam_systemd_home.so
+password   required                    pam_unix.so          try_first_pass nullok shadow
+password   optional                    pam_permit.so
+
+-session   optional                    pam_systemd_home.so
+session    required                    pam_limits.so
+session    required                    pam_unix.so
+
+# Gnome Keyring
+session    optional                    pam_gnome_keyring.so auto_start
+
+session    optional                    pam_permit.so
+```
+
+
+## Suspend / Resume
+* sudo vim /etc/systemd/logind.conf.d/suspend.conf                                                                             14h 37m
+```
+[Login]
+IdleAction=suspend
+IdleActionSec=10min
+
+HandleLidSwitch=suspend
+HandleLidSwitchExternalPower=suspend
+#HandleLidSwitchDocked=ignore
+LidSwitchIgnoreInhibited=yes
+```
+
+
+
+# OTHER Hints for config and rice sway
+
+
+# Detect if on battery
+[ "$(cat /sys/class/power_supply/BAT0/status)" = "Discharging" ] && echo yes || echo no
+
+set $screen_off sh -c '[ "$(cat /sys/class/power_supply/BAT0/status)" = "Discharging" ] && swaymsg "output * dpms off" || true'
+set $screen_on swaymsg "output * dpms on"
+
+exec_always swayidle -w \
+  timeout 300 $screen_off \
+  resume $screen_on
+
+
+* troubleshoot mouse after wakeup
+sudo modprobe -r psmouse i2c_hid
+sudo modprobe i2c_hid psmouse

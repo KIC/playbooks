@@ -6,7 +6,7 @@
   vars:
     user_id: "{{ ansible_facts.env.SUDO_USER }}"
     # The AUR helper to be used. 'yay' is a popular choice or paru
-    aur_helper: "paru"
+    aur_helper: "yay"
   tasks:
     - name: Install software
       ansible.builtin.package:

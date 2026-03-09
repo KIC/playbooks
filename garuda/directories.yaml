@@ -4,6 +4,15 @@
   become: yes
   vars:
     user_id: "{{ ansible_facts.env.SUDO_USER }}"
+  pre_tasks:      
+    - name: Create Pre-DIRECTORIES snapshot
+      shell: snapper -c root create --description "Pre-DIRECTORIES-{{ ansible_facts.date_time.epoch }}"
+      register: snapshot_pre
+      changed_when: snapshot_pre.rc == 0
+
+    - name: Update GRUB to include new snapshot
+      shell: grub-mkconfig -o /boot/grub/grub.cfg
+      when: snapshot_pre.rc == 0
   tasks:
     - name: Bind mount shared locations for user
       ansible.builtin.mount:
@@ -30,8 +39,8 @@
         state: "link"
       loop:
        - { src: "audios/public", tgt: "Public/audios" }
-       - { src: "source/public", tgt: "Public/source" }
-       - { src: "documents/public", tgt: "Public/documents" }
+       - { src: "sources/public", tgt: "Public/sources" }
+       - { src: "Documents/public", tgt: "Public/documents" }
        - { src: "Videos/public", tgt: "Public/videos" }
        - { src: "images/public", tgt: "Public/images" }
        - { src: "data/public", tgt: "Public/data" }

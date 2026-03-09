@@ -5,7 +5,6 @@
   become: yes
   vars:
     user_id: "{{ ansible_facts.env.SUDO_USER }}"
-    # The AUR helper to be used. 'yay' is a popular choice or paru
     aur_helper: "yay"
   tasks:
     - name: Install pacman software
@@ -20,27 +19,35 @@
           - gemini-cli
         state: present
 
+    - name: configure vscode
+      become: no
+      shell: |
+        code --install-extension rdnlsmith.linux-themes
+        sed -i -e 's/"workbench.colorTheme": ".*"/"workbench.colorTheme": "Yaru"/g' "$HOME/.config/Code/User/settings.json"
+        code --install-extension lisoveliy.starcoderex
+        code --install-extension ms-vscode-remote.remote-containers
+        code --install-extension ms-azuretools.vscode-docker
+        code --install-extension ms-python.python
+        code --install-extension isudox.vscode-jetbrains-keybindings
+        code --install-extension hoovercj.vscode-power-mode
+
     - name: install kilo.ai cli
       ansible.builtin.shell: |
         npm install -g @kilocode/cli
         
-    - name: install cursor
+    - name: install cursor and co from aur
       become: yes
       become_user: aur_builder
       kewlfft.aur.aur:
-        name: cursor-bin
+        name: "{{ item }}"
         state: present
         use: "{{ aur_helper }}"
         aur_only: yes
-
-    - name: install snapd
-      become: yes
-      become_user: aur_builder
-      kewlfft.aur.aur:
-        name: snapd
-        state: present
-        use: "{{ aur_helper }}"
-        aur_only: yes
+      loop:
+        - jetbrains-toolbox
+        - cursor-bin
+        - snapd
+        - claude-code
 
     - name: enable snapd
       systemd:
@@ -56,6 +63,7 @@
       become: yes
 
     - name: install extensions
+      become: no
       ansible.builtin.shell: |
         gemini extensions install https://github.com/gemini-cli-extensions/conductor --auto-update --consent
 

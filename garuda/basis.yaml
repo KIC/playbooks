@@ -12,6 +12,8 @@
       - /opt/uv/tools
       - /opt/uv/python
       - /opt/uv/cache
+      - /opt/bin
+      - /opt/sbin
       - /opt/appimages
       - /opt/manual-binaries
       - /home/.shared/downloads
@@ -115,6 +117,15 @@
         backup: yes
       notify: update-grub
 
+    - name: add opt to path
+      ansible.builtin.copy:
+        dest: /etc/profile.d/00-opt-path.sh
+        content: |
+          export PATH="/opt/sbin:/opt/bin:$PATH"
+        owner: root
+        group: root
+        mode: '0644'
+        
     - name: Create disable-turbo-battery service
       ansible.builtin.copy:
         dest: /etc/systemd/system/disable-turbo-battery.service
@@ -185,12 +196,14 @@
     - name: Install standard software
       ansible.builtin.package:
         name:
+          - fisher  # fish shell plugin manager
           - xorg-server-xephyr  # nested X11 Server
           - onlyoffice  # more ms like office
           - yay  # we use yay because paru has poor ansible automation properties!
           - foot  # fast leightweigt wayland console
-          - nvim  # colored vim
-          - vim  # plain vim
+          # - nvim  # colored vim
+          # - vim  # plain vim
+          - helix  # we use helix instad of vim
           - flatpak  # enble flatpak packages
           - convmv  # convert between file encodings 
           - firejail  # run any executable in a sandbox environment
@@ -228,6 +241,10 @@
           - ffmpeg  # video codecs and cli tools
           - syncthing  # sync files across devices
         state: present
+
+    - name: Install Fish Shell Pluingins
+      ansible.builtin.shell: |
+        fisher install edc/bass
 
     - name: Make aur_builder user art of group users
       ansible.builtin.user:

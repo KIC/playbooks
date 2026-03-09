@@ -1,0 +1,11 @@
+sudo pacman -S vmware-workstation linux-headers base-devel
+
+sudo vmware-modconfig --console --install-all
+
+sudo systemctl restart vmware-networks
+
+ls -l /dev/vmmon /dev/vmnet*
+
+sudo systemctl start vmware-networks-configuration.service
+sudo systemctl enable --now vmware-networks.service
+sudo systemctl enable --now vmware-usbarbitrator.service
